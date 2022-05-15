@@ -1,0 +1,6 @@
+build
+xcode-build
+Note.txt
+*.spv
+compile_commands.json
+*.vim
