@@ -7,5 +7,5 @@ vec2 Vertices[3] = vec2[](
 );
 
 void main() {
-    gl_Position = vec4(Vertices[gl_VertexIndex], 0, 1);
+    gl_Position = project * vec4(Vertices[gl_VertexIndex], 0, 1);
 }

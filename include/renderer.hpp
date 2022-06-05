@@ -20,6 +20,8 @@ public:
     static void CreatePipeline(vk::ShaderModule vertexShader, vk::ShaderModule fragShader);;
     static vk::ShaderModule CreateShaderModule(const char* filename);
 
+    static void Render();
+
 private:
     struct QueueFamilyIndices {
         std::optional<uint32_t> graphicsIndices;
@@ -48,6 +50,11 @@ private:
     static std::vector<vk::ImageView> imageViews_;
     static vk::Pipeline pipeline_;
     static std::vector<vk::ShaderModule> shaderModules_;
+    static vk::PipelineLayout layout_;
+    static vk::RenderPass renderPass_;
+    static std::vector<vk::Framebuffer> framebuffers_;
+    static vk::CommandPool cmdPool_;
+    static vk::CommandBuffer cmdBuf_;
 
     static vk::Instance createInstance(const std::vector<const char*>& extensions);
     static vk::SurfaceKHR createSurface(SDL_Window* window);
@@ -55,6 +62,13 @@ private:
     static vk::Device createDevice();
     static vk::SwapchainKHR createSwapchain();
     static std::vector<vk::ImageView> createImageViews();
+    static vk::PipelineLayout createLayout();
+    static vk::RenderPass createRenderPass();
+    static std::vector<vk::Framebuffer> createFramebuffers();
+    static vk::CommandPool createCmdPool();
+    static vk::CommandBuffer createCmdBuffer();
+
+    static void recordCmd(vk::CommandBuffer buf, vk::Framebuffer);
 
     static QueueFamilyIndices queryPhysicalDevice();
     static SwapchainRequiredInfo querySwapchainRequiredInfo(int w, int h);

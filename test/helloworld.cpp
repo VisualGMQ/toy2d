@@ -21,6 +21,7 @@ int main(int, char**) {
                 isquit = true; 
             }
         }
+        // Renderer::Render();
     }
 
     Renderer::Quit();

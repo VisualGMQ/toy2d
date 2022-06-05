@@ -4,7 +4,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 project(StepIntoVulkan
         LANGUAGES CXX)
 
-find_package(Vulkan REQUIRED)
+find_package(Vulkan QUIET)
+if (NOT Vulkan_FOUND)
+    find_package(PkgConfig)
+    pkg_check_modules(Vulkan vulkan REQUIRED IMPORTED_TARGET)
+    add_library(Vulkan::Vulkan ALIAS PkgConfig::Vulkan)
+endif()
+
 find_package(SDL2 REQUIRED)
 
 find_program(GLSLC_PROGRAM glslc REQUIRED)

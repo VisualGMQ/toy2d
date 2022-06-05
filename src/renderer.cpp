@@ -13,6 +13,11 @@ std::vector<vk::Image> Renderer::images_;
 std::vector<vk::ImageView> Renderer::imageViews_;
 vk::Pipeline Renderer::pipeline_ = nullptr;
 std::vector<vk::ShaderModule> Renderer::shaderModules_;
+vk::PipelineLayout Renderer::layout_ = nullptr;
+vk::RenderPass Renderer::renderPass_ = nullptr;
+std::vector<vk::Framebuffer> Renderer::framebuffers_;
+vk::CommandPool Renderer::cmdPool_ = nullptr;
+vk::CommandBuffer Renderer::cmdBuf_ = nullptr;
 
 #define CHECK_NULL(expr)  \
 if (!(expr)) { \
@@ -63,6 +68,22 @@ void Renderer::Init(SDL_Window* window) {
     images_ = device_.getSwapchainImagesKHR(swapchain_);
 
     imageViews_ = createImageViews();
+
+    layout_ = createLayout();
+    CHECK_NULL(layout_);
+
+    renderPass_ = createRenderPass();
+    CHECK_NULL(renderPass_);
+
+    framebuffers_ = createFramebuffers();
+    for (auto& framebuffer : framebuffers_) {
+        CHECK_NULL(framebuffer);
+    }
+
+    cmdPool_ = createCmdPool();
+    CHECK_NULL(cmdPool_);
+
+    cmdBuf_ = createCmdBuffer();
 }
 
 vk::Instance Renderer::createInstance(const std::vector<const char*>& extensions) {
@@ -226,6 +247,14 @@ std::vector<vk::ImageView> Renderer::createImageViews() {
 }
 
 void Renderer::Quit() {
+    device_.freeCommandBuffers(cmdPool_, cmdBuf_);
+    device_.destroyCommandPool(cmdPool_);
+    for (auto& framebuffer : framebuffers_) {
+        device_.destroyFramebuffer(framebuffer);
+    }
+    device_.destroyRenderPass(renderPass_);
+    device_.destroyPipelineLayout(layout_);
+    device_.destroyPipeline(pipeline_);
     for (auto& shader : shaderModules_) {
         device_.destroyShaderModule(shader);
     }
@@ -241,29 +270,70 @@ void Renderer::Quit() {
 void Renderer::CreatePipeline(vk::ShaderModule vertexShader, vk::ShaderModule fragShader) {
     vk::GraphicsPipelineCreateInfo info;
 
-    // info.setPVertexInputState();
-
-    // info.setPInputAssemblyState();
-
+    // shader configurations
     std::array<vk::PipelineShaderStageCreateInfo, 2> stageInfos;
-    stageInfos[0].setModule(vertexShader);
-    stageInfos[0].setStage(vk::ShaderStageFlagBits::eVertex);
-    stageInfos[0].setPName("main");
-    stageInfos[0].setModule(fragShader);
-    stageInfos[0].setStage(vk::ShaderStageFlagBits::eFragment);
-    stageInfos[0].setPName("main");
+    stageInfos[0].setModule(vertexShader)
+                 .setStage(vk::ShaderStageFlagBits::eVertex)
+                 .setPName("main");
+    stageInfos[1].setModule(fragShader)
+                 .setStage(vk::ShaderStageFlagBits::eFragment)
+                 .setPName("main");
     info.setStages(stageInfos);
 
-    // info.setPViewportState();
-    
-    // info.setPRasterizationState();
+    // Vertex Input
+    vk::PipelineVertexInputStateCreateInfo vertexInput;
+    info.setPVertexInputState(&vertexInput);
 
-    // info.setPMultisampleState();
+    // Input Assembly
+    vk::PipelineInputAssemblyStateCreateInfo inputAsm;
+    inputAsm.setPrimitiveRestartEnable(false)
+            .setTopology(vk::PrimitiveTopology::eTriangleList);
+    info.setPInputAssemblyState(&inputAsm);
 
-    // info.setPDepthStencilState();
+    // layout
+    info.setLayout(layout_);
 
-    // info.setPColorBlendState();
+    // Viewport and Scissor
+    vk::PipelineViewportStateCreateInfo viewportState;
+    vk::Viewport viewport(0, 0,
+                          requiredInfo_.extent.width, requiredInfo_.extent.height,
+                          0, 1);
+    vk::Rect2D scissor({0, 0}, requiredInfo_.extent);
+    viewportState.setViewports(viewport)
+                 .setScissors(scissor);
+    info.setPViewportState(&viewportState);
 
+    // Rasterization
+    vk::PipelineRasterizationStateCreateInfo rastInfo;
+    rastInfo.setRasterizerDiscardEnable(false)
+            .setDepthClampEnable(false)
+            .setDepthBiasEnable(false)
+            .setLineWidth(1)
+            .setCullMode(vk::CullModeFlagBits::eNone)
+            .setPolygonMode(vk::PolygonMode::eFill);
+    info.setPRasterizationState(&rastInfo);
+
+    // Multisample
+    vk::PipelineMultisampleStateCreateInfo multisample;
+    multisample.setSampleShadingEnable(false)
+               .setRasterizationSamples(vk::SampleCountFlagBits::e1);
+    info.setPMultisampleState(&multisample);
+
+    // DepthStencil
+    info.setPDepthStencilState(nullptr);
+
+    // Color blend
+    vk::PipelineColorBlendStateCreateInfo colorBlend;
+    vk::PipelineColorBlendAttachmentState attBlendState;
+    attBlendState.setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eA);
+    colorBlend.setLogicOpEnable(false)
+              .setAttachments(attBlendState);
+    info.setPColorBlendState(&colorBlend);
+
+    // RenderPass
+    info.setRenderPass(renderPass_);
+
+    // create pipeline
     auto result = device_.createGraphicsPipeline(nullptr, info);
     if (result.result != vk::Result::eSuccess) {
         throw std::runtime_error("pipeline create failed");
@@ -284,4 +354,103 @@ vk::ShaderModule Renderer::CreateShaderModule(const char* filename) {
 
     shaderModules_.push_back(device_.createShaderModule(info));
     return shaderModules_.back();
+}
+
+vk::PipelineLayout Renderer::createLayout() {
+    vk::PipelineLayoutCreateInfo info;
+    return device_.createPipelineLayout(info);
+}
+
+vk::RenderPass Renderer::createRenderPass() {
+    vk::RenderPassCreateInfo createInfo;
+    vk::AttachmentDescription attchmentDesc;
+    attchmentDesc.setSamples(vk::SampleCountFlagBits::e1)
+                 .setLoadOp(vk::AttachmentLoadOp::eClear)
+                 .setStoreOp(vk::AttachmentStoreOp::eStore)
+                 .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                 .setFormat(requiredInfo_.format.format)
+                 .setInitialLayout(vk::ImageLayout::eUndefined)
+                 .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+    createInfo.setAttachments(attchmentDesc);
+    
+    vk::SubpassDescription subpassDesc;
+    vk::AttachmentReference refer;
+    refer.setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+    refer.setAttachment(0);
+    subpassDesc.setColorAttachments(refer);
+    subpassDesc.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
+
+    createInfo.setSubpasses(subpassDesc);
+
+    return device_.createRenderPass(createInfo);
+}
+
+std::vector<vk::Framebuffer> Renderer::createFramebuffers() {
+    std::vector<vk::Framebuffer> result;
+
+    for (int i = 0; i < imageViews_.size(); i++) {
+        vk::FramebufferCreateInfo info;
+        info.setRenderPass(renderPass_);
+        info.setLayers(1);
+        info.setWidth(requiredInfo_.extent.width);
+        info.setHeight(requiredInfo_.extent.height);
+        info.setAttachments(imageViews_[i]);
+
+        result.push_back(device_.createFramebuffer(info));
+    }
+
+    return result;
+}
+
+vk::CommandPool Renderer::createCmdPool() {
+    vk::CommandPoolCreateInfo info;
+    info.setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
+        .setQueueFamilyIndex(queueIndices_.graphicsIndices.value());
+
+    return device_.createCommandPool(info);
+}
+
+vk::CommandBuffer Renderer::createCmdBuffer() {
+    vk::CommandBufferAllocateInfo allocInfo;
+    allocInfo.setCommandPool(cmdPool_)
+             .setCommandBufferCount(1)
+             .setLevel(vk::CommandBufferLevel::ePrimary);
+
+    return device_.allocateCommandBuffers(allocInfo)[0];
+}
+
+void Renderer::recordCmd(vk::CommandBuffer buf, vk::Framebuffer fbo) {
+    vk::CommandBufferBeginInfo beginInfo;
+    beginInfo.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+
+    if (buf.begin(&beginInfo) != vk::Result::eSuccess) {
+        throw std::runtime_error("command buffer record failed");
+    }
+
+    vk::RenderPassBeginInfo renderPassBegin;
+    vk::ClearColorValue cvalue(std::array<float, 4>{0.1, 0.1, 0.1, 1});
+    vk::ClearValue value(cvalue);
+    renderPassBegin.setRenderPass(renderPass_)
+                   .setRenderArea(vk::Rect2D({0, 0}, requiredInfo_.extent))
+                   .setClearValues(value)
+                   .setFramebuffer(fbo);
+
+    buf.beginRenderPass(renderPassBegin, vk::SubpassContents::eInline);
+
+    buf.draw(3, 1, 0, 0);
+
+    buf.endRenderPass();
+
+    buf.end();
+}
+
+void Renderer::Render() {
+    // acquire a image from swapchain
+    
+    // recordCmd();
+
+    // sync
+    
+
 }
