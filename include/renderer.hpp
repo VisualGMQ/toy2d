@@ -7,6 +7,7 @@
 #include <optional>
 #include <fstream>
 #include <iterator>
+#include <climits>
 
 #include "vulkan/vulkan.hpp"
 
@@ -21,6 +22,7 @@ public:
     static vk::ShaderModule CreateShaderModule(const char* filename);
 
     static void Render();
+    static void WaitIdle();
 
 private:
     struct QueueFamilyIndices {
@@ -55,6 +57,9 @@ private:
     static std::vector<vk::Framebuffer> framebuffers_;
     static vk::CommandPool cmdPool_;
     static vk::CommandBuffer cmdBuf_;
+    static vk::Semaphore imageAvaliableSem_;
+    static vk::Semaphore renderFinishSem_;
+    static vk::Fence fence_;
 
     static vk::Instance createInstance(const std::vector<const char*>& extensions);
     static vk::SurfaceKHR createSurface(SDL_Window* window);
@@ -67,9 +72,11 @@ private:
     static std::vector<vk::Framebuffer> createFramebuffers();
     static vk::CommandPool createCmdPool();
     static vk::CommandBuffer createCmdBuffer();
+    static vk::Fence createFence();
 
     static void recordCmd(vk::CommandBuffer buf, vk::Framebuffer);
 
     static QueueFamilyIndices queryPhysicalDevice();
     static SwapchainRequiredInfo querySwapchainRequiredInfo(int w, int h);
+    static vk::Semaphore createSemaphore();
 };

@@ -18,6 +18,9 @@ vk::RenderPass Renderer::renderPass_ = nullptr;
 std::vector<vk::Framebuffer> Renderer::framebuffers_;
 vk::CommandPool Renderer::cmdPool_ = nullptr;
 vk::CommandBuffer Renderer::cmdBuf_ = nullptr;
+vk::Semaphore Renderer::imageAvaliableSem_ = nullptr;
+vk::Semaphore Renderer::renderFinishSem_ = nullptr;
+vk::Fence Renderer::fence_ = nullptr;
 
 #define CHECK_NULL(expr)  \
 if (!(expr)) { \
@@ -84,6 +87,15 @@ void Renderer::Init(SDL_Window* window) {
     CHECK_NULL(cmdPool_);
 
     cmdBuf_ = createCmdBuffer();
+    CHECK_NULL(cmdBuf_);
+
+    imageAvaliableSem_ = createSemaphore();
+    renderFinishSem_ = createSemaphore();
+    CHECK_NULL(imageAvaliableSem_);
+    CHECK_NULL(renderFinishSem_);
+
+    fence_ = createFence();
+    CHECK_NULL(fence_);
 }
 
 vk::Instance Renderer::createInstance(const std::vector<const char*>& extensions) {
@@ -247,6 +259,9 @@ std::vector<vk::ImageView> Renderer::createImageViews() {
 }
 
 void Renderer::Quit() {
+    device_.destroyFence(fence_);
+    device_.destroySemaphore(imageAvaliableSem_);
+    device_.destroySemaphore(renderFinishSem_);
     device_.freeCommandBuffers(cmdPool_, cmdBuf_);
     device_.destroyCommandPool(cmdPool_);
     for (auto& framebuffer : framebuffers_) {
@@ -438,6 +453,8 @@ void Renderer::recordCmd(vk::CommandBuffer buf, vk::Framebuffer fbo) {
 
     buf.beginRenderPass(renderPassBegin, vk::SubpassContents::eInline);
 
+    buf.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline_);
+
     buf.draw(3, 1, 0, 0);
 
     buf.endRenderPass();
@@ -446,11 +463,50 @@ void Renderer::recordCmd(vk::CommandBuffer buf, vk::Framebuffer fbo) {
 }
 
 void Renderer::Render() {
+    device_.resetFences(fence_);
+
     // acquire a image from swapchain
-    
-    // recordCmd();
+    auto result = device_.acquireNextImageKHR(swapchain_, std::numeric_limits<uint64_t>::max(), imageAvaliableSem_, nullptr);
+    if (result.result != vk::Result::eSuccess) {
+        throw std::runtime_error("acquire image failed");
+    }
+    uint32_t imageIndex = result.value;
 
-    // sync
-    
+    cmdBuf_.reset();
+    recordCmd(cmdBuf_, framebuffers_[imageIndex]);
 
+
+    vk::PipelineStageFlags flags = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+    vk::SubmitInfo submitInfo;
+    submitInfo.setCommandBuffers(cmdBuf_)
+              .setSignalSemaphores(renderFinishSem_)
+              .setWaitSemaphores(imageAvaliableSem_)
+              .setWaitDstStageMask(flags);
+    graphicQueue_.submit(submitInfo, fence_);
+
+    vk::PresentInfoKHR presentInfo;
+    presentInfo.setImageIndices(imageIndex)
+               .setSwapchains(swapchain_)
+               .setWaitSemaphores(renderFinishSem_);
+    if (presentQueue_.presentKHR(presentInfo) != vk::Result::eSuccess) {
+        throw std::runtime_error("present failed");
+    }
+
+    if (device_.waitForFences(fence_, true, std::numeric_limits<uint64_t>::max()) != vk::Result::eSuccess) {
+        throw std::runtime_error("wait fence failed");
+    }
+}
+
+vk::Semaphore Renderer::createSemaphore() {
+    vk::SemaphoreCreateInfo info;
+    return device_.createSemaphore(info);
+}
+
+vk::Fence Renderer::createFence() {
+    vk::FenceCreateInfo createInfo;
+    return device_.createFence(createInfo);
+}
+
+void Renderer::WaitIdle() {
+    device_.waitIdle();
 }

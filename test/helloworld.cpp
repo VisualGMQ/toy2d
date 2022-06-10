@@ -21,8 +21,9 @@ int main(int, char**) {
                 isquit = true; 
             }
         }
-        // Renderer::Render();
+        Renderer::Render();
     }
+    Renderer::WaitIdle();
 
     Renderer::Quit();
     SDL_DestroyWindow(window);
