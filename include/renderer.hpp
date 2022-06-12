@@ -38,6 +38,11 @@ private:
         uint32_t imageCount;
     };
 
+    struct MemRerquiedInfo {
+        uint32_t index;
+        size_t size;
+    };
+
     static QueueFamilyIndices queueIndices_;
     static SwapchainRequiredInfo requiredInfo_;
 
@@ -60,6 +65,12 @@ private:
     static vk::Semaphore imageAvaliableSem_;
     static vk::Semaphore renderFinishSem_;
     static vk::Fence fence_;
+    static vk::Buffer vertexBuffer_;
+    static vk::DeviceMemory vertexMem_;
+    static vk::Buffer deviceBuffer_;
+    static vk::DeviceMemory deviceMem_;
+    static vk::Buffer indexBuffer_;
+    static vk::DeviceMemory indexMem_;
 
     static vk::Instance createInstance(const std::vector<const char*>& extensions);
     static vk::SurfaceKHR createSurface(SDL_Window* window);
@@ -73,6 +84,9 @@ private:
     static vk::CommandPool createCmdPool();
     static vk::CommandBuffer createCmdBuffer();
     static vk::Fence createFence();
+    static vk::Buffer createBuffer(vk::BufferUsageFlags flag);
+    static vk::DeviceMemory allocateMem(vk::Buffer, vk::MemoryPropertyFlags flag);
+    static MemRerquiedInfo queryMemInfo(vk::Buffer, vk::MemoryPropertyFlags flag);
 
     static void recordCmd(vk::CommandBuffer buf, vk::Framebuffer);
 
