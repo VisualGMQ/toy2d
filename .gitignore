@@ -4,3 +4,6 @@ Note.txt
 *.spv
 compile_commands.json
 *.vim
+.vscode
+.cache
+.cmake

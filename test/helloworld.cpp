@@ -1,5 +1,7 @@
 #include <iostream>
 #include "renderer.hpp"
+#include "SDL.h"
+#include "SDL_vulkan.h"
 
 int main(int, char**) {
     SDL_Init(SDL_INIT_EVERYTHING);
@@ -7,11 +9,19 @@ int main(int, char**) {
                                           SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                           800, 600,
                                           SDL_WINDOW_SHOWN|SDL_WINDOW_VULKAN);
-    Renderer::Init(window);
-    auto vertexShader = Renderer::CreateShaderModule("vert.spv");
-    auto fragShader = Renderer::CreateShaderModule("frag.spv");
 
-    Renderer::CreatePipeline(vertexShader, fragShader);
+    unsigned int count;
+    SDL_Vulkan_GetInstanceExtensions(window, &count, nullptr);
+    std::vector<const char*> extensions(count);
+    SDL_Vulkan_GetInstanceExtensions(window, &count, extensions.data());
+
+    toy2d::Renderer::Init(extensions,
+                          [&](vk::Instance instance) -> vk::SurfaceKHR {
+                              VkSurfaceKHR surface;
+                              SDL_Vulkan_CreateSurface(window, instance, &surface);
+                              return surface;
+                          },
+                          toy2d::Vec2{800, 600});
 
     bool isquit = false;
     SDL_Event event;
@@ -21,11 +31,10 @@ int main(int, char**) {
                 isquit = true; 
             }
         }
-        Renderer::Render();
+        toy2d::Renderer::Render();
     }
-    Renderer::WaitIdle();
 
-    Renderer::Quit();
+    toy2d::Renderer::Quit();
     SDL_DestroyWindow(window);
     SDL_Quit();
     return 0;

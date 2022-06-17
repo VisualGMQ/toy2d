@@ -1,0 +1,22 @@
+#pragma once
+
+#include "vulkan/vulkan.hpp"
+
+#include <vector>
+#include <array>
+#include <exception>
+#include <iostream>
+#include <optional>
+#include <iterator>
+#include <fstream>
+#include <string>
+
+#define ASSERT(expr)  \
+if (!(expr)) { \
+    throw std::runtime_error(#expr " is nullptr"); \
+}
+
+#define Log(fmt, ...) printf("[%s][%d]: " fmt, __FUNCTION__, __LINE__, #__VA_ARGS__)
+
+using SurfaceCreateCallback = std::function<vk::SurfaceKHR(vk::Instance)>;
+
