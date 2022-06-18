@@ -1,0 +1,18 @@
+name: build
+on:
+  push:
+    branches:
+      - toy2d
+jobs:
+  build-on-windows:
+    runs-on: windows
+    steps:
+      - name: Install Vulkan SDK
+        uses: humbletim/install-vulkan-sdk@v1.1.1
+        with:
+          version: 1.3.204.0
+          cache: true
+      - name: build
+        run: |
+          cmake -S . -B build
+          cmake --build build -j2
