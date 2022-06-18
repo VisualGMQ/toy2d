@@ -15,8 +15,50 @@ RawRenderer::RawRenderer() {
     };
 
     auto& device = Context::GetInstance().GetDevice();
-    layout_ = device.CreateLayout();
+
+    cmdPool_ = device.CreateCmdPool();
+    ASSERT(cmdPool_);
+
+    setLayout_ = device.CreateDescriptorSetLayout(Uniform::GetBinding());
+    ASSERT(setLayout_);
+
+    layout_ = device.CreateLayout(setLayout_);
     ASSERT(layout_);
+
+    auto windowSize = Context::GetInstance().GetWindowSize();
+    ubo_.project = CreateOrthoMat(0, windowSize.x,
+                                  windowSize.y, 0,
+                                  1.0, -1.0);
+    ubo_.view = CreateEyeMat();
+    ubo_.model = CreateSRT(Vec2{200, 150}, 0, Vec2{200, 200});
+
+    uniformBuffer_ = device.CreateBuffer(vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferDst,
+                                         sizeof(ubo_),
+                                         vk::MemoryPropertyFlagBits::eDeviceLocal);
+    ASSERT(uniformBuffer_.buffer);
+    ASSERT(uniformBuffer_.memory);
+
+    copyData2Device(&ubo_,
+                    sizeof(ubo_),
+                    uniformBuffer_);
+
+    descriptorPool_ = device.CreateDescriptorPool();
+    ASSERT(descriptorPool_);
+    set_ = device.AllocateDescriptorSet(descriptorPool_, setLayout_);
+    ASSERT(set_);
+
+    vk::DescriptorBufferInfo bufferInfo;
+    bufferInfo.setOffset(0)
+              .setRange(uniformBuffer_.size)
+              .setBuffer(uniformBuffer_.buffer);
+    vk::WriteDescriptorSet writeSet;
+    writeSet.setDescriptorType(vk::DescriptorType::eUniformBuffer)
+            .setDstSet(set_)
+            .setDstArrayElement(0)
+            .setDstBinding(0)
+            .setBufferInfo(bufferInfo);
+
+    device.UpdateDescriptorSet(writeSet);
 
     renderPass_ = device.CreateRenderPass();
     ASSERT(renderPass_);
@@ -39,9 +81,6 @@ RawRenderer::RawRenderer() {
     for (auto& fence : fences_) {
         fence = device.CreateFence(false);
     }
-
-    cmdPool_ = device.CreateCmdPool();
-    ASSERT(cmdPool_);
 
     vertexBuffer_ = device.CreateBuffer(vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                         sizeof(vertices_),
@@ -91,10 +130,14 @@ void RawRenderer::copyBuffer2Device(Buffer src, Buffer dst, vk::CommandBuffer cm
 RawRenderer::~RawRenderer() {
     auto& device = Context::GetInstance().GetDevice();
 
+    device.FreeDescriptorSet(descriptorPool_, set_);
+    device.DestroyDescriptorPool(descriptorPool_);
+    device.DestroyDescriptorSetLayout(setLayout_);
     for (auto& fbo : framebuffers_) {
         device.DestroyFramebuffer(fbo);
     }
 
+    device.DestroyBuffer(uniformBuffer_);
     device.DestroyBuffer(vertexBuffer_);
     device.DestroyBuffer(indexBuffer_);
     device.FreeCmdBuffers(cmdPool_, drawCmdBufs_);
@@ -168,6 +211,7 @@ void RawRenderer::recordCmd(vk::CommandBuffer cmd, vk::Framebuffer framebuffer) 
                    .setClearValues(value)
                    .setFramebuffer(framebuffer);
 
+    static float c = 0.5;
     cmd.beginRenderPass(renderPassBegin, vk::SubpassContents::eInline);
 
     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline_);
@@ -175,6 +219,10 @@ void RawRenderer::recordCmd(vk::CommandBuffer cmd, vk::Framebuffer framebuffer) 
     vk::DeviceSize size = 0;
     cmd.bindVertexBuffers(0, vertexBuffer_.buffer, size);
     cmd.bindIndexBuffer(indexBuffer_.buffer, 0, vk::IndexType::eUint16);
+    cmd.pushConstants(layout_, vk::ShaderStageFlagBits::eVertex, 0, sizeof(c), &c);
+    uint32_t offset = 0;
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+                           layout_, 0, set_, {});
 
     cmd.drawIndexed(indices_.size(), 1, 0, 0, 0);
 

@@ -17,7 +17,7 @@ if (!(expr)) { \
     throw std::runtime_error(#expr " is nullptr"); \
 }
 
-#define Log(fmt, ...) printf("[%s][%d]: " fmt, __FUNCTION__, __LINE__, #__VA_ARGS__)
+#define Log(fmt, ...) printf("[%s][%d]: " fmt "\n", __FUNCTION__, __LINE__, ##__VA_ARGS__)
 
 using SurfaceCreateCallback = std::function<vk::SurfaceKHR(vk::Instance)>;
 

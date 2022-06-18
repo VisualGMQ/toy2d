@@ -58,11 +58,22 @@ public:
     vk::Pipeline CreatePipeline(vk::ShaderModule vertexShader, vk::ShaderModule fragShader, const Vec2& windowSize, vk::RenderPass, vk::PipelineLayout);
     void DestroyPipeline(vk::Pipeline);
 
-    vk::PipelineLayout CreateLayout();
+    vk::PipelineLayout CreateLayout(vk::DescriptorSetLayout);
     void DestroyLayout(vk::PipelineLayout);
+
+    vk::DescriptorPool CreateDescriptorPool();
+    void DestroyDescriptorPool(vk::DescriptorPool);
+
+    vk::DescriptorSet AllocateDescriptorSet(vk::DescriptorPool, vk::DescriptorSetLayout);
+    void FreeDescriptorSet(vk::DescriptorPool, vk::DescriptorSet);
 
     vk::RenderPass CreateRenderPass();
     void DestroyRenderPass(vk::RenderPass renderPass);
+
+    vk::DescriptorSetLayout CreateDescriptorSetLayout(vk::DescriptorSetLayoutBinding);
+    void DestroyDescriptorSetLayout(vk::DescriptorSetLayout);
+
+    void UpdateDescriptorSet(vk::WriteDescriptorSet);
 
     void WaitIdle();
 

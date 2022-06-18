@@ -408,14 +408,61 @@ void Device::DestroyPipeline(vk::Pipeline pipeline) {
     device_.destroyPipeline(pipeline);
 }
 
-vk::PipelineLayout Device::CreateLayout() {
+vk::PipelineLayout Device::CreateLayout(vk::DescriptorSetLayout setLayout) {
     vk::PipelineLayoutCreateInfo info;
+    vk::PushConstantRange constantRange;
+    constantRange.setOffset(0)
+                 .setSize(sizeof(float))
+                 .setStageFlags(vk::ShaderStageFlagBits::eVertex);
+    info.setSetLayouts(setLayout)
+        .setPushConstantRanges(constantRange);
 
     return device_.createPipelineLayout(info);
 }
 
 void Device::DestroyLayout(vk::PipelineLayout layout) {
     device_.destroyPipelineLayout(layout);
+}
+
+vk::DescriptorSetLayout Device::CreateDescriptorSetLayout(vk::DescriptorSetLayoutBinding binding) {
+    vk::DescriptorSetLayoutCreateInfo info;
+    info.setBindings(binding);
+    return device_.createDescriptorSetLayout(info);
+}
+
+void Device::DestroyDescriptorSetLayout(vk::DescriptorSetLayout layout) {
+    device_.destroyDescriptorSetLayout(layout);
+}
+
+void Device::UpdateDescriptorSet(vk::WriteDescriptorSet writeSet) {
+    device_.updateDescriptorSets(writeSet, {});
+}
+
+vk::DescriptorPool Device::CreateDescriptorPool() {
+    vk::DescriptorPoolCreateInfo info;
+    vk::DescriptorPoolSize size;
+    size.setType(vk::DescriptorType::eUniformBuffer)
+        .setDescriptorCount(1);
+    info.setPoolSizes(size)
+        .setMaxSets(requiredInfo_.imageCount)
+        .setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet);
+    return device_.createDescriptorPool(info);
+}
+
+void Device::DestroyDescriptorPool(vk::DescriptorPool pool) {
+    device_.destroyDescriptorPool(pool);
+}
+
+vk::DescriptorSet Device::AllocateDescriptorSet(vk::DescriptorPool pool, vk::DescriptorSetLayout layout) {
+    vk::DescriptorSetAllocateInfo info;
+    info.setSetLayouts(layout)
+        .setDescriptorPool(pool)
+        .setDescriptorSetCount(1);
+    return device_.allocateDescriptorSets(info)[0];
+}
+
+void Device::FreeDescriptorSet(vk::DescriptorPool pool, vk::DescriptorSet set) {
+    device_.freeDescriptorSets(pool, set);
 }
 
 vk::RenderPass Device::CreateRenderPass() {

@@ -18,12 +18,15 @@ private:
     std::array<uint16_t, 6> indices_;
 
     vk::PipelineLayout layout_;
+    vk::DescriptorSetLayout setLayout_;
     vk::RenderPass renderPass_;
     vk::Pipeline pipeline_;
     vk::ShaderModule vertexShader_;
     vk::ShaderModule fragShader_;
     vk::CommandPool cmdPool_;
     std::vector<vk::CommandBuffer> drawCmdBufs_;
+    vk::DescriptorPool descriptorPool_;
+    vk::DescriptorSet set_;
 
     Buffer vertexBuffer_;
     Buffer indexBuffer_;
@@ -32,6 +35,7 @@ private:
     std::vector<vk::Semaphore> drawFinishSems_;
     std::vector<vk::Fence> fences_;
     std::vector<vk::Framebuffer> framebuffers_;
+    Buffer uniformBuffer_;
 
     unsigned int curInFlightIndex_ = 0;
 
@@ -41,6 +45,21 @@ private:
     void copyBuffer2Device(Buffer src, Buffer dst, vk::CommandBuffer cmd);
     
     void recordCmd(vk::CommandBuffer, vk::Framebuffer);
+
+    struct Uniform {
+        Mat44 project;
+        Mat44 view;
+        Mat44 model;
+
+        static vk::DescriptorSetLayoutBinding GetBinding() {
+            static vk::DescriptorSetLayoutBinding binding;
+            binding.setBinding(0)
+                   .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                   .setStageFlags(vk::ShaderStageFlagBits::eVertex)
+                   .setDescriptorCount(1);
+            return binding;
+        }
+    } ubo_;
 };
 
 template <typename T>

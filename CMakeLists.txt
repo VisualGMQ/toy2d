@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(StepIntoVulkan
+project(Toy2D
         LANGUAGES CXX)
 
 find_package(Vulkan QUIET)
@@ -14,16 +14,20 @@ endif()
 find_package(SDL2 REQUIRED)
 
 find_program(GLSLC_PROGRAM glslc REQUIRED)
+execute_process(COMMAND ${GLSLC_PROGRAM} shader/shader.vert -o vert.spv)
+execute_process(COMMAND ${GLSLC_PROGRAM} shader/shader.frag -o frag.spv)
+message(STATUS "run glslc to compile shaders ...")
+message(STATUS "compile shader OK")
 
 aux_source_directory(src SRC)
 
-add_library(stepintovulkan SHARED ${SRC})
+add_library(toy2d SHARED ${SRC})
 target_include_directories(
-    stepintovulkan
+    toy2d
     PUBLIC include
 )
-target_compile_features(stepintovulkan PUBLIC cxx_std_17)
-target_link_libraries(stepintovulkan PUBLIC Vulkan::Vulkan SDL2::SDL2)
+target_compile_features(toy2d PUBLIC cxx_std_17)
+target_link_libraries(toy2d PUBLIC Vulkan::Vulkan SDL2::SDL2)
 
 #######################
 # test
