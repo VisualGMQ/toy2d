@@ -4,7 +4,7 @@
 
 目前的效果：
 
-![snapshot][./snapshot/snapshot.png]
+![snapshot](./snapshot/snapshot.png)
 
 我录制的[B站学习视频](https://www.bilibili.com/video/BV1R44y1M7e2?share_source=copy_web)
 
