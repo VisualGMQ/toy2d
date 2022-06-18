@@ -10,6 +10,7 @@
 #include <iterator>
 #include <fstream>
 #include <string>
+#include <cmath>
 
 #define ASSERT(expr)  \
 if (!(expr)) { \

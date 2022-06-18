@@ -38,4 +38,22 @@ struct Vertex {
     }
 };
 
+class Mat44 final {
+public:
+    Mat44(const std::initializer_list<float>& elems) {
+        auto it = elems.begin();
+        for (int x = 0; x < 4; x++) {
+            for (int y = 0; y < 4; y++) {
+                Set(x, y, *(it + (y * 4 + x)));
+            }
+        }
+    }
+    float Get(int x, int y) { return data_[x * 4 + y]; }
+    void Set(int x, int y, float value) { data_[x * 4 + y] = value; }
+    float* Data() { return data_; }
+
+private:
+    float data_[4 * 4];
+};
+
 }
