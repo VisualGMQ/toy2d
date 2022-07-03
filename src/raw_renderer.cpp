@@ -2,8 +2,6 @@
 
 namespace toy2d {
 
-static vk::PipelineLayout layout_;
-
 RawRenderer::RawRenderer() {
     vertices_[0] = Vertex{{-0.5, -0.5}, {1, 0, 0}};
     vertices_[1] = Vertex{{ 0.5, -0.5}, {0, 1, 0}};
@@ -211,7 +209,6 @@ void RawRenderer::recordCmd(vk::CommandBuffer cmd, vk::Framebuffer framebuffer) 
                    .setClearValues(value)
                    .setFramebuffer(framebuffer);
 
-    static float c = 0.5;
     cmd.beginRenderPass(renderPassBegin, vk::SubpassContents::eInline);
 
     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline_);
@@ -219,7 +216,7 @@ void RawRenderer::recordCmd(vk::CommandBuffer cmd, vk::Framebuffer framebuffer) 
     vk::DeviceSize size = 0;
     cmd.bindVertexBuffers(0, vertexBuffer_.buffer, size);
     cmd.bindIndexBuffer(indexBuffer_.buffer, 0, vk::IndexType::eUint16);
-    cmd.pushConstants(layout_, vk::ShaderStageFlagBits::eVertex, 0, sizeof(c), &c);
+
     uint32_t offset = 0;
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
                            layout_, 0, set_, {});

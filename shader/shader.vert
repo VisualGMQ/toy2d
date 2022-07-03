@@ -10,12 +10,8 @@ layout (binding = 0) uniform UniformBufferObject {
     mat4 model;
 } ubo;
 
-layout (push_constant) uniform PushConstant {
-    float c;
-}pc;
-
 void main() {
     gl_Position = ubo.project * ubo.view * ubo.model * vec4(inPos, 0, 1);
-    outColor = inColor * pc.c;
+    outColor = inColor;
 }
 

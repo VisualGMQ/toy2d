@@ -25,7 +25,17 @@ Context::Context(std::vector<const char*> extensions,
                  SurfaceCreateCallback surfaceCb,
                  const Vec2& windowSize,
                  bool debugMode): windowSize_(windowSize) {
+#ifdef MACOS
     extensions.push_back("VK_KHR_get_physical_device_properties2");
+#endif
+
+    auto supportExtensions = vk::enumerateInstanceExtensionProperties();
+    std::function<bool(const char*, vk::ExtensionProperties)> equalLambda = [](const char* e1, vk::ExtensionProperties e2) -> bool {
+        return std::strcmp(e1, e2.extensionName.data()) == 0;
+    };
+    if (!CheckElemsInList(extensions, supportExtensions, equalLambda)) {
+        Log("have don't support extensions");
+    }
 
     instance_ = createInstance(extensions, debugMode);
     ASSERT(instance_);
@@ -36,7 +46,7 @@ Context::Context(std::vector<const char*> extensions,
 
     phyDevice_ = pickupPhysicalDevice();
     ASSERT(phyDevice_);
-    std::cout << "pickup " << phyDevice_.getProperties().deviceName << std::endl;
+    Log("pickup %s", phyDevice_.getProperties().deviceName.data());
 
     device_ = new Device(phyDevice_, windowSize.x, windowSize.y, surface_);
 }
@@ -58,13 +68,24 @@ vk::Instance Context::createInstance(const std::vector<const char*>& extensions,
     vk::InstanceCreateInfo info;
 
     if (debugMode) {
-        std::array<const char*, 1> layers{"VK_LAYER_KHRONOS_validation"};
+        std::vector<const char*> layers{"VK_LAYER_KHRONOS_validation"};
 
-        info.setPEnabledExtensionNames(extensions);
-        info.setPEnabledLayerNames(layers);
+        auto supportLayers = vk::enumerateInstanceLayerProperties();
+        std::function<bool(const char*, vk::LayerProperties)> equalLambda =
+            [](const char* e1, vk::LayerProperties e2) {
+                return std::strcmp(e1, e2.layerName.data()) == 0;
+            };
+
+        if (!CheckElemsInList(layers, supportLayers, equalLambda)) {
+            Log("has don't support layers");
+        } else {
+            info.setPEnabledLayerNames(layers);
+        }
     }
-
-    return vk::createInstance(info);
+	info.setPEnabledExtensionNames(extensions);
+    
+    vk::Instance result = vk::createInstance(info);
+    return result;
 }
 
 Context::~Context() {

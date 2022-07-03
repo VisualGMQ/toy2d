@@ -63,8 +63,10 @@ vk::Device Device::createDevice() {
         queueInfos.push_back(info2);
     }
 
-    std::array<const char*, 2> extensions{"VK_KHR_portability_subset",
-                                          VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    std::vector<const char*> extensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+#ifdef MACOS
+    extensions.push_back("VK_KHR_portability_subset");
+#endif
 
     vk::DeviceCreateInfo info;
     info.setPEnabledExtensionNames(extensions);
@@ -322,7 +324,10 @@ void Device::DestroyFramebuffer(vk::Framebuffer fb) {
 
 vk::ShaderModule Device::CreateShaderModule(const char* filename) {
     std::ifstream file(filename);
-    ASSERT(!file.fail());
+    if (file.fail()) {
+        Log("%s load failed", filename);
+		ASSERT(!file.fail());
+    }
     std::string str((std::istreambuf_iterator<char>(file)),
                      std::istreambuf_iterator<char>());
 

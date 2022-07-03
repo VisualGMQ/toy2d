@@ -7,3 +7,7 @@ compile_commands.json
 .vscode
 .cache
 .cmake
+*.json
+out
+.vs
+vs-build
