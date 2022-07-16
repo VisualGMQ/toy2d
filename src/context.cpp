@@ -60,30 +60,11 @@ vk::PhysicalDevice Context::pickupPhysicalDevice() {
 }
 
 vk::Instance Context::createInstance(const std::vector<const char*>& extensions, bool debugMode) {
-    auto supportExtensions = vk::enumerateInstanceExtensionProperties();
-    std::function<bool(const char*, vk::ExtensionProperties)> equalLambda = [](const char* e1, vk::ExtensionProperties e2) -> bool {
-        return std::strcmp(e1, e2.extensionName.data()) == 0;
-    };
-    if (!CheckElemsInList(extensions, supportExtensions, equalLambda)) {
-        Log("have don't support extensions");
-    }
-
     vk::InstanceCreateInfo info;
 
     if (debugMode) {
-        std::vector<const char*> layers{"VK_LAYER_KHRONOS_validation"};
-
-        auto supportLayers = vk::enumerateInstanceLayerProperties();
-        std::function<bool(const char*, vk::LayerProperties)> equalLambda =
-            [](const char* e1, vk::LayerProperties e2) {
-                return std::strcmp(e1, e2.layerName.data()) == 0;
-            };
-
-        if (!CheckElemsInList(layers, supportLayers, equalLambda)) {
-            Log("has don't support layers");
-        } else {
-            info.setPEnabledLayerNames(layers);
-        }
+        std::array<const char*, 1> layers{"VK_LAYER_KHRONOS_validation"};
+        info.setPEnabledLayerNames(layers);
     }
 	info.setPEnabledExtensionNames(extensions);
 
