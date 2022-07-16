@@ -9,7 +9,7 @@ struct Vec2 {
 };
 
 struct Color {
-    float r, g, b, a;
+    float r, g, b;
 };
 
 struct Vertex {

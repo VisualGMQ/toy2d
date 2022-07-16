@@ -1,5 +1,5 @@
-option(SDL2_INCLUDE_DIR "SDL2 include directory" "")
-option(SDL2_LIB_DIR "SDL2 implement library directory" "")
+set(SDL2_INCLUDE_DIR "" CACHE PATH "SDL2 include directory")
+set(SDL2_LIB_DIR "" CACHE PATH "SDL2 implement library directory")
 
 if (NOT TARGET SDL2)
     if (WIN32)  # Windows, use clang or MSVC

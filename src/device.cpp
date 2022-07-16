@@ -323,17 +323,22 @@ void Device::DestroyFramebuffer(vk::Framebuffer fb) {
 }
 
 vk::ShaderModule Device::CreateShaderModule(const char* filename) {
-    std::ifstream file(filename);
+    std::ifstream file(filename, std::ios_base::binary);
     if (file.fail()) {
         Log("%s load failed", filename);
 		ASSERT(!file.fail());
     }
-    std::string str((std::istreambuf_iterator<char>(file)),
-                     std::istreambuf_iterator<char>());
+    file.seekg(0, std::ios_base::end);
+    size_t size = file.tellg();
+    std::vector<char> content(size);
+    file.seekg(0, std::ios_base::beg);
+    file.read(content.data(), size);
 
     vk::ShaderModuleCreateInfo info;
-    info.pCode = (uint32_t*)str.data();
-    info.codeSize = str.size();
+    info.pCode = (uint32_t*)content.data();
+    info.codeSize = content.size();
+
+    file.close();
 
     return device_.createShaderModule(info);
 }

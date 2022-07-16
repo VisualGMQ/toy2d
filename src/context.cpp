@@ -28,27 +28,22 @@ Context::Context(std::vector<const char*> extensions,
 #ifdef MACOS
     extensions.push_back("VK_KHR_get_physical_device_properties2");
 #endif
-
-    auto supportExtensions = vk::enumerateInstanceExtensionProperties();
-    std::function<bool(const char*, vk::ExtensionProperties)> equalLambda = [](const char* e1, vk::ExtensionProperties e2) -> bool {
-        return std::strcmp(e1, e2.extensionName.data()) == 0;
-    };
-    if (!CheckElemsInList(extensions, supportExtensions, equalLambda)) {
-        Log("have don't support extensions");
-    }
-
     instance_ = createInstance(extensions, debugMode);
     ASSERT(instance_);
+    Log("instance create OK");
 
     ASSERT(surfaceCb);
     surface_ = surfaceCb(instance_);
     ASSERT(surface_);
+    Log("surface create OK");
 
     phyDevice_ = pickupPhysicalDevice();
     ASSERT(phyDevice_);
     Log("pickup %s", phyDevice_.getProperties().deviceName.data());
 
     device_ = new Device(phyDevice_, windowSize.x, windowSize.y, surface_);
+    ASSERT(device_);
+    Log("device create OK");
 }
 
 Device& Context::GetDevice() {
@@ -65,6 +60,14 @@ vk::PhysicalDevice Context::pickupPhysicalDevice() {
 }
 
 vk::Instance Context::createInstance(const std::vector<const char*>& extensions, bool debugMode) {
+    auto supportExtensions = vk::enumerateInstanceExtensionProperties();
+    std::function<bool(const char*, vk::ExtensionProperties)> equalLambda = [](const char* e1, vk::ExtensionProperties e2) -> bool {
+        return std::strcmp(e1, e2.extensionName.data()) == 0;
+    };
+    if (!CheckElemsInList(extensions, supportExtensions, equalLambda)) {
+        Log("have don't support extensions");
+    }
+
     vk::InstanceCreateInfo info;
 
     if (debugMode) {
@@ -83,9 +86,8 @@ vk::Instance Context::createInstance(const std::vector<const char*>& extensions,
         }
     }
 	info.setPEnabledExtensionNames(extensions);
-    
-    vk::Instance result = vk::createInstance(info);
-    return result;
+
+    return vk::createInstance(info);
 }
 
 Context::~Context() {

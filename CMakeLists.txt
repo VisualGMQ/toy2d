@@ -2,21 +2,17 @@ cmake_minimum_required(VERSION 3.15)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(Toy2D
-        LANGUAGES CXX)
+        LANGUAGES CXX
+        DESCRIPTION "a toy 2d renderer made in vulkan")
 
-find_package(Vulkan QUIET)
+include(cmake/FindVulkan.cmake)
 include(cmake/FindSDL2.cmake)
 
-if (NOT Vulkan_FOUND)
-    find_package(PkgConfig)
-    pkg_check_modules(Vulkan vulkan REQUIRED IMPORTED_TARGET)
-    add_library(Vulkan::Vulkan ALIAS PkgConfig::Vulkan)
-endif()
-
 find_program(GLSLC_PROGRAM glslc REQUIRED)
+
+message(STATUS "run glslc to compile shaders ...")
 execute_process(COMMAND ${GLSLC_PROGRAM} ${CMAKE_SOURCE_DIR}/shader/shader.vert -o vert.spv)
 execute_process(COMMAND ${GLSLC_PROGRAM} ${CMAKE_SOURCE_DIR}/shader/shader.frag -o frag.spv)
-message(STATUS "run glslc to compile shaders ...")
 message(STATUS "compile shader OK")
 
 aux_source_directory(src SRC)
