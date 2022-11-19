@@ -1,0 +1,5 @@
+add_executable(sandbox)
+aux_source_directory(./ SANDBOX_SRC)
+target_sources(sandbox PRIVATE ${SANDBOX_SRC})
+target_link_libraries(sandbox PUBLIC toy2d SDL2)
+CopyDLL(sandbox)
