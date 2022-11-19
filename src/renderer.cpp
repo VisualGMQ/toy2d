@@ -2,40 +2,46 @@
 
 namespace toy2d {
 
-Renderer::Renderer() {
-    createFence();
+Renderer::Renderer(int maxFlightCount): maxFlightCount_(maxFlightCount), curFrame_(0) {
+    createFences();
     createSemaphores();
-    cmdBuf_ = Context::Instance().commandManager->CreateOneCommandBuffer();
+    createCmdBuffers();
 }
 
 Renderer::~Renderer() {
     auto& device = Context::Instance().device;
-    device.destroySemaphore(imageAvaliableSem_);
-    device.destroySemaphore(renderFinishSem_);
-    device.destroyFence(fence_);
+    for (auto& sem : imageAvaliableSems_) {
+        device.destroySemaphore(sem);
+    }
+    for (auto& sem : renderFinishSems_) {
+        device.destroySemaphore(sem);
+    }
+    for (auto& fence : fences_) {
+        device.destroyFence(fence);
+    }
 }
 
 void Renderer::DrawTriangle() {
     auto& ctx = Context::Instance();
     auto& device = ctx.device;
-    if (device.waitForFences(fence_, true, std::numeric_limits<std::uint64_t>::max()) != vk::Result::eSuccess) {
+    if (device.waitForFences(fences_[curFrame_], true, std::numeric_limits<std::uint64_t>::max()) != vk::Result::eSuccess) {
         throw std::runtime_error("wait for fence failed");
     }
-    device.resetFences(fence_);
+    device.resetFences(fences_[curFrame_]);
 
     auto& swapchain = ctx.swapchain;
-    auto resultValue = device.acquireNextImageKHR(swapchain->swapchain, std::numeric_limits<std::uint64_t>::max(), imageAvaliableSem_, nullptr);
+    auto resultValue = device.acquireNextImageKHR(swapchain->swapchain, std::numeric_limits<std::uint64_t>::max(), imageAvaliableSems_[curFrame_], nullptr);
     if (resultValue.result != vk::Result::eSuccess) {
         throw std::runtime_error("wait for image in swapchain failed");
     }
     auto imageIndex = resultValue.value;
 
     auto& cmdMgr = ctx.commandManager;
-    cmdBuf_.reset();
+    cmdBufs_[curFrame_].reset();
 
     vk::CommandBufferBeginInfo beginInfo;
     beginInfo.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
-    cmdBuf_.begin(beginInfo);
+    cmdBufs_[curFrame_].begin(beginInfo);
     vk::ClearValue clearValue;
     clearValue.setColor(vk::ClearColorValue(std::array<float, 4>{0.1, 0.1, 0.1, 1}));
     vk::RenderPassBeginInfo renderPassBegin;
@@ -43,40 +49,63 @@ void Renderer::DrawTriangle() {
                    .setFramebuffer(swapchain->framebuffers[imageIndex])
                    .setClearValues(clearValue)
                    .setRenderArea(vk::Rect2D({}, swapchain->GetExtent()));
-    cmdBuf_.beginRenderPass(&renderPassBegin, vk::SubpassContents::eInline);
-    cmdBuf_.bindPipeline(vk::PipelineBindPoint::eGraphics, ctx.renderProcess->graphicsPipeline);
-    cmdBuf_.draw(3, 1, 0, 0);
-    cmdBuf_.endRenderPass();
-    cmdBuf_.end();
+    cmdBufs_[curFrame_].beginRenderPass(&renderPassBegin, vk::SubpassContents::eInline);
+    cmdBufs_[curFrame_].bindPipeline(vk::PipelineBindPoint::eGraphics, ctx.renderProcess->graphicsPipeline);
+    cmdBufs_[curFrame_].draw(3, 1, 0, 0);
+    cmdBufs_[curFrame_].endRenderPass();
+    cmdBufs_[curFrame_].end();
 
     vk::SubmitInfo submit;
     vk::PipelineStageFlags flags = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-    submit.setCommandBuffers(cmdBuf_)
-          .setWaitSemaphores(imageAvaliableSem_)
+    submit.setCommandBuffers(cmdBufs_[curFrame_])
+          .setWaitSemaphores(imageAvaliableSems_[curFrame_])
           .setWaitDstStageMask(flags)
-          .setSignalSemaphores(renderFinishSem_);
-    ctx.graphicsQueue.submit(submit, fence_);
+          .setSignalSemaphores(renderFinishSems_[curFrame_]);
+    ctx.graphicsQueue.submit(submit, fences_[curFrame_]);
 
     vk::PresentInfoKHR presentInfo;
-    presentInfo.setWaitSemaphores(renderFinishSem_)
+    presentInfo.setWaitSemaphores(renderFinishSems_[curFrame_])
                .setSwapchains(swapchain->swapchain)
                .setImageIndices(imageIndex);
     if (ctx.presentQueue.presentKHR(presentInfo) != vk::Result::eSuccess) {
         throw std::runtime_error("present queue execute failed");
     }
+
+    curFrame_ = (curFrame_ + 1) % maxFlightCount_;
 }
 
-void Renderer::createFence() {
-    vk::FenceCreateInfo fenceCreateInfo;
-    fenceCreateInfo.setFlags(vk::FenceCreateFlagBits::eSignaled);
-    fence_ = Context::Instance().device.createFence(fenceCreateInfo);
+void Renderer::createFences() {
+    fences_.resize(maxFlightCount_, nullptr);
+
+    for (auto& fence : fences_) {
+        vk::FenceCreateInfo fenceCreateInfo;
+        fenceCreateInfo.setFlags(vk::FenceCreateFlagBits::eSignaled);
+        fence = Context::Instance().device.createFence(fenceCreateInfo);
+    }
 }
 
 void Renderer::createSemaphores() {
     auto& device = Context::Instance().device;
     vk::SemaphoreCreateInfo info;
-    imageAvaliableSem_ = device.createSemaphore(info);
-    renderFinishSem_ = device.createSemaphore(info);
+
+    imageAvaliableSems_.resize(maxFlightCount_);
+    renderFinishSems_.resize(maxFlightCount_);
+
+    for (auto& sem : imageAvaliableSems_) {
+        sem = device.createSemaphore(info);
+    }
+
+    for (auto& sem : renderFinishSems_) {
+        sem = device.createSemaphore(info);
+    }
+}
+
+void Renderer::createCmdBuffers() {
+    cmdBufs_.resize(maxFlightCount_);
+
+    for (auto& cmd : cmdBufs_) {
+        cmd = Context::Instance().commandManager->CreateOneCommandBuffer();
+    }
 }
 
 }

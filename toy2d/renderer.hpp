@@ -10,19 +10,22 @@ namespace toy2d {
 
 class Renderer {
 public:
-    Renderer();
+    Renderer(int maxFlightCount = 2);
     ~Renderer();
 
     void DrawTriangle();
 
 private:
-    vk::Fence fence_;
-    vk::Semaphore imageAvaliableSem_;
-    vk::Semaphore renderFinishSem_;
-    vk::CommandBuffer cmdBuf_;
+    int maxFlightCount_;
+    int curFrame_;
+    std::vector<vk::Fence> fences_;
+    std::vector<vk::Semaphore> imageAvaliableSems_;
+    std::vector<vk::Semaphore> renderFinishSems_;
+    std::vector<vk::CommandBuffer> cmdBufs_;
 
-    void createFence();
+    void createFences();
     void createSemaphores();
+    void createCmdBuffers();
 };
 
 }
