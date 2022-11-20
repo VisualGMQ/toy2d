@@ -17,6 +17,7 @@ void Init(std::vector<const char*>& extensions, Context::GetSurfaceCallback cb, 
 }
 
 void Quit() {
+    Context::Instance().device.waitIdle();
     renderer_.reset();
     Context::Quit();
 }
