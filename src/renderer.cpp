@@ -1,5 +1,6 @@
 #include "toy2d/renderer.hpp"
-#include "toy2d/vertex.hpp"
+#include "toy2d/math.hpp"
+#include "toy2d/context.hpp"
 
 namespace toy2d {
 
@@ -8,15 +9,19 @@ Renderer::Renderer(int maxFlightCount): maxFlightCount_(maxFlightCount), curFram
     createSemaphores();
     createCmdBuffers();
     createBuffers();
+    createUniformBuffers(maxFlightCount);
     bufferData();
+    createDescriptorPool(maxFlightCount);
+    allocDescriptorSets(maxFlightCount);
+    initMats();
 }
 
 Renderer::~Renderer() {
     auto& device = Context::Instance().device;
-    device.destroyBuffer(verticesBuffer_.buffer);
-    device.freeMemory(verticesBuffer_.memory);
-    device.destroyBuffer(indicesBuffer_.buffer);
-    device.freeMemory(indicesBuffer_.memory);
+    device.destroyDescriptorPool(descriptorPool_);
+    verticesBuffer_.reset();
+    indicesBuffer_.reset();
+    uniformBuffers_.clear();
     for (auto& sem : imageAvaliableSems_) {
         device.destroySemaphore(sem);
     }
@@ -28,7 +33,7 @@ Renderer::~Renderer() {
     }
 }
 
-void Renderer::DrawRect() {
+void Renderer::DrawRect(const Rect& rect) {
     auto& ctx = Context::Instance();
     auto& device = ctx.device;
     if (device.waitForFences(fences_[curFrame_], true, std::numeric_limits<std::uint64_t>::max()) != vk::Result::eSuccess) {
@@ -42,6 +47,10 @@ void Renderer::DrawRect() {
         throw std::runtime_error("wait for image in swapchain failed");
     }
     auto imageIndex = resultValue.value;
+
+    auto model = Mat4::CreateTranslate(rect.position).Mul(Mat4::CreateScale(rect.size));
+    bufferUniformData(curFrame_, model);
+    updateDescriptorSets();
 
     auto& cmdMgr = ctx.commandManager;
     auto& cmd = cmdBufs_[curFrame_];
@@ -61,9 +70,12 @@ void Renderer::DrawRect() {
     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, ctx.renderProcess->graphicsPipeline);
 
     vk::DeviceSize offset = 0;
-    cmd.bindVertexBuffers(0, verticesBuffer_.buffer, offset);
-    cmd.bindIndexBuffer(indicesBuffer_.buffer, 0, vk::IndexType::eUint32);
+    cmd.bindVertexBuffers(0, verticesBuffer_->buffer, offset);
+    cmd.bindIndexBuffer(indicesBuffer_->buffer, 0, vk::IndexType::eUint32);
 
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+                           Context::Instance().renderProcess->layout,
+                           0, descriptorSets_[curFrame_], {});
     cmd.drawIndexed(6, 1, 0, 0, 0);
     cmd.endRenderPass();
     cmd.end();
@@ -124,33 +136,23 @@ void Renderer::createCmdBuffers() {
 void Renderer::createBuffers() {
     auto& device = Context::Instance().device;
 
-    vk::BufferCreateInfo createInfo;
-    createInfo.setUsage(vk::BufferUsageFlagBits::eVertexBuffer)
-              .setSize(sizeof(float) * 8)
-              .setSharingMode(vk::SharingMode::eExclusive);
+    verticesBuffer_.reset(new Buffer(vk::BufferUsageFlagBits::eVertexBuffer,
+                                     sizeof(float) * 8,
+                                     vk::MemoryPropertyFlagBits::eHostVisible|vk::MemoryPropertyFlagBits::eHostCoherent));
 
-    verticesBuffer_.buffer = device.createBuffer(createInfo);
+    indicesBuffer_.reset(new Buffer(vk::BufferUsageFlagBits::eIndexBuffer,
+                                     sizeof(float) * 6,
+                                     vk::MemoryPropertyFlagBits::eHostVisible|vk::MemoryPropertyFlagBits::eHostCoherent));
+}
 
-    auto requirements = device.getBufferMemoryRequirements(verticesBuffer_.buffer);
-    verticesBuffer_.size = requirements.size;
-    auto index = queryBufferMemTypeIndex(requirements.memoryTypeBits,
-                                         vk::MemoryPropertyFlagBits::eHostCoherent|vk::MemoryPropertyFlagBits::eHostVisible);
-    vk::MemoryAllocateInfo allocInfo;
-    allocInfo.setMemoryTypeIndex(index)
-             .setAllocationSize(requirements.size);
-    verticesBuffer_.memory = device.allocateMemory(allocInfo);
+void Renderer::createUniformBuffers(int flightCount) {
+    uniformBuffers_.resize(flightCount);
 
-    device.bindBufferMemory(verticesBuffer_.buffer, verticesBuffer_.memory, 0);
-
-    createInfo.setUsage(vk::BufferUsageFlagBits::eIndexBuffer)
-              .setSize(sizeof(std::uint32_t) * 6);
-    indicesBuffer_.buffer = device.createBuffer(createInfo);
-    requirements = device.getBufferMemoryRequirements(indicesBuffer_.buffer);
-    indicesBuffer_.size = requirements.size;
-    index = queryBufferMemTypeIndex(requirements.memoryTypeBits,
-                                    vk::MemoryPropertyFlagBits::eHostCoherent|vk::MemoryPropertyFlagBits::eHostVisible);
-    indicesBuffer_.memory = device.allocateMemory(allocInfo);
-    device.bindBufferMemory(indicesBuffer_.buffer, indicesBuffer_.memory, 0);
+    for (auto& buffer : uniformBuffers_) {
+        buffer.reset(new Buffer(vk::BufferUsageFlagBits::eUniformBuffer,
+                     sizeof(float) * 4 * 4 * 3,
+                     vk::MemoryPropertyFlagBits::eHostVisible|vk::MemoryPropertyFlagBits::eHostCoherent));
+    }
 }
 
 std::uint32_t Renderer::queryBufferMemTypeIndex(std::uint32_t type, vk::MemoryPropertyFlags flag) {
@@ -167,24 +169,94 @@ std::uint32_t Renderer::queryBufferMemTypeIndex(std::uint32_t type, vk::MemoryPr
 }
 
 void Renderer::bufferData() {
-    Vertex vertices[] = {
-        Vertex{{-0.5, -0.5}},
-        Vertex{{0.5, -0.5}},
-        Vertex{{0.5, 0.5}},
-        Vertex{{-0.5, 0.5}},
+    bufferVertexData();
+    bufferIndicesData();
+}
+
+void Renderer::bufferVertexData() {
+    Vec vertices[] = {
+        Vec{{-0.5, -0.5}},
+        Vec{{0.5, -0.5}},
+        Vec{{0.5, 0.5}},
+        Vec{{-0.5, 0.5}},
     };
     auto& device = Context::Instance().device;
-    void* ptr = device.mapMemory(verticesBuffer_.memory, 0, verticesBuffer_.size);
+    void* ptr = device.mapMemory(verticesBuffer_->memory, 0, verticesBuffer_->size);
         memcpy(ptr, vertices, sizeof(vertices));
-    device.unmapMemory(verticesBuffer_.memory);
+    device.unmapMemory(verticesBuffer_->memory);
 
+
+}
+
+void Renderer::bufferIndicesData() {
     std::uint32_t indices[] = {
         0, 1, 3,
         1, 2, 3,
     };
-    ptr = device.mapMemory(indicesBuffer_.memory, 0, indicesBuffer_.size);
+    auto& device = Context::Instance().device;
+    void* ptr = device.mapMemory(indicesBuffer_->memory, 0, indicesBuffer_->size);
         memcpy(ptr, indices, sizeof(indices));
-    device.unmapMemory(indicesBuffer_.memory);
+    device.unmapMemory(indicesBuffer_->memory);
+}
+
+void Renderer::bufferUniformData(int count, const Mat4& model) {
+    Uniform uniform;
+    uniform.project = projectMat_;
+    uniform.view = viewMat_;
+    uniform.model = model;
+    auto& device = Context::Instance().device;
+    auto& uniformBuffer = uniformBuffers_[count];
+    void* ptr = device.mapMemory(uniformBuffer->memory, 0, uniformBuffer->size);
+        memcpy(ptr, (void*)&uniform, sizeof(uniform));
+    device.unmapMemory(uniformBuffer->memory);
+}
+
+void Renderer::initMats() {
+    viewMat_ = Mat4::CreateIdentity();
+    projectMat_ = Mat4::CreateIdentity();
+}
+
+void Renderer::SetProject(int right, int left, int bottom, int top, int far, int near) {
+    projectMat_ = Mat4::CreateOrtho(left, right, top, bottom, near, far);
+}
+
+void Renderer::createDescriptorPool(int flightCount) {
+    vk::DescriptorPoolCreateInfo createInfo;
+    vk::DescriptorPoolSize size;
+    size.setDescriptorCount(flightCount)
+        .setType(vk::DescriptorType::eUniformBuffer);
+    createInfo.setPoolSizes(size)
+			  .setMaxSets(flightCount);
+    descriptorPool_ = Context::Instance().device.createDescriptorPool(createInfo);
+}
+
+std::vector<vk::DescriptorSet> Renderer::allocDescriptorSet(int flightCount) {
+    std::vector layouts(flightCount, Context::Instance().renderProcess->descSetLayout);
+    vk::DescriptorSetAllocateInfo allocInfo;
+    allocInfo.setDescriptorPool(descriptorPool_)
+			 .setSetLayouts(layouts);
+    return Context::Instance().device.allocateDescriptorSets(allocInfo);
+}
+
+void Renderer::allocDescriptorSets(int flightCount) {
+    descriptorSets_ = allocDescriptorSet(flightCount);
+}
+
+void Renderer::updateDescriptorSets() {
+    for (int i = 0; i < descriptorSets_.size(); i++) {
+        vk::DescriptorBufferInfo bufferInfo;
+        bufferInfo.setBuffer(uniformBuffers_[i]->buffer)
+                  .setOffset(0)
+                  .setRange(sizeof(Uniform));
+
+        vk::WriteDescriptorSet writeInfo;
+        writeInfo.setBufferInfo(bufferInfo)
+                 .setDstBinding(0)
+                 .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                 .setDstArrayElement(0)
+                 .setDstSet(descriptorSets_[curFrame_]);
+        Context::Instance().device.updateDescriptorSets(writeInfo, {});
+    }
 }
 
 }

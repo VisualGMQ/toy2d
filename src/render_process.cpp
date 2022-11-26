@@ -1,21 +1,23 @@
 #include "toy2d/render_process.hpp"
 #include "toy2d/context.hpp"
 #include "toy2d/swapchain.hpp"
-#include "toy2d/vertex.hpp"
+#include "toy2d/math.hpp"
 
 namespace toy2d {
 
 RenderProcess::RenderProcess() {
+    descSetLayout = createDescriptorSetLayout();
     layout = createLayout();
     renderPass = createRenderPass();
     graphicsPipeline = nullptr;
 }
 
 RenderProcess::~RenderProcess() {
-    auto& ctx = Context::Instance();
-    ctx.device.destroyRenderPass(renderPass);
-    ctx.device.destroyPipelineLayout(layout);
-    ctx.device.destroyPipeline(graphicsPipeline);
+    auto& device = Context::Instance().device;
+    device.destroyDescriptorSetLayout(descSetLayout);
+    device.destroyRenderPass(renderPass);
+    device.destroyPipelineLayout(layout);
+    device.destroyPipeline(graphicsPipeline);
 }
 
 void RenderProcess::RecreateGraphicsPipeline(const std::vector<char>& vertexSource, const std::vector<char>& fragSource) {
@@ -35,7 +37,7 @@ void RenderProcess::RecreateRenderPass() {
 vk::PipelineLayout RenderProcess::createLayout() {
     vk::PipelineLayoutCreateInfo createInfo;
     createInfo.setPushConstantRangeCount(0)
-              .setSetLayoutCount(0);
+              .setSetLayouts(descSetLayout);
 
     return Context::Instance().device.createPipelineLayout(createInfo);
 }
@@ -65,8 +67,8 @@ vk::Pipeline RenderProcess::createGraphicsPipeline(const std::vector<char>& vert
 
     // 1. vertex input
     vk::PipelineVertexInputStateCreateInfo vertexInputCreateInfo;
-    auto attributeDesc = Vertex::GetAttributeDescription();
-    auto bindingDesc = Vertex::GetBindingDescription();
+    auto attributeDesc = Vec::GetAttributeDescription();
+    auto bindingDesc = Vec::GetBindingDescription();
     vertexInputCreateInfo.setVertexAttributeDescriptions(attributeDesc)
                          .setVertexBindingDescriptions(bindingDesc);
 
@@ -168,6 +170,18 @@ vk::RenderPass RenderProcess::createRenderPass() {
               .setSubpasses(subpassDesc);
 
     return Context::Instance().device.createRenderPass(createInfo);
+}
+
+vk::DescriptorSetLayout RenderProcess::createDescriptorSetLayout() {
+    vk::DescriptorSetLayoutCreateInfo createInfo;
+    vk::DescriptorSetLayoutBinding binding;
+    binding.setBinding(0)
+           .setDescriptorCount(1)
+           .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+           .setStageFlags(vk::ShaderStageFlagBits::eVertex);
+    createInfo.setBindings(binding);
+
+    return Context::Instance().device.createDescriptorSetLayout(createInfo);
 }
 
 }

@@ -31,13 +31,30 @@ int main(int argc, char** argv) {
     bool shouldClose = false;
     SDL_Event event;
 
+    float x = 100, y = 100;
+
     while (!shouldClose) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
                 shouldClose = true;
             }
+            if (event.type == SDL_KEYDOWN) {
+                if (event.key.keysym.sym == SDLK_a) {
+                    x -= 10;
+                }
+                if (event.key.keysym.sym == SDLK_d) {
+                    x += 10;
+                }
+                if (event.key.keysym.sym == SDLK_w) {
+                    y -= 10;
+                }
+                if (event.key.keysym.sym == SDLK_s) {
+                    y += 10;
+                }
+            }
         }
-        renderer->DrawRect();
+        renderer->DrawRect(toy2d::Rect{toy2d::Vec{x, y},
+                                       toy2d::Size{200, 300}});
     }
     toy2d::Quit();
 

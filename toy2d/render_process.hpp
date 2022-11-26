@@ -10,6 +10,8 @@ public:
     vk::Pipeline graphicsPipeline = nullptr;
     vk::RenderPass renderPass = nullptr;
     vk::PipelineLayout layout = nullptr;
+    // TODO encapusolue DescriptorSetLayout into Shader
+    vk::DescriptorSetLayout descSetLayout = nullptr;
 
     RenderProcess();
     ~RenderProcess();
@@ -21,6 +23,7 @@ private:
     vk::PipelineLayout createLayout();
     vk::Pipeline createGraphicsPipeline(const std::vector<char>& vertexSource, const std::vector<char>& fragSource);
     vk::RenderPass createRenderPass();
+    vk::DescriptorSetLayout createDescriptorSetLayout();
 };
 
 }

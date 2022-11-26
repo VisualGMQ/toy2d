@@ -14,6 +14,7 @@ void Init(std::vector<const char*>& extensions, Context::GetSurfaceCallback cb, 
     ctx.initCommandPool();
 
     renderer_ = std::make_unique<Renderer>();
+    renderer_->SetProject(windowWidth, 0, 0, windowHeight, -1, 1);
 }
 
 void Quit() {

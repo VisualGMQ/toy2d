@@ -4,6 +4,8 @@
 #include "toy2d/context.hpp"
 #include "toy2d/command_manager.hpp"
 #include "toy2d/swapchain.hpp"
+#include "toy2d/math.hpp"
+#include "toy2d/buffer.hpp"
 #include <limits>
 
 namespace toy2d {
@@ -13,18 +15,14 @@ public:
     Renderer(int maxFlightCount = 2);
     ~Renderer();
 
-    void DrawRect();
+    void SetProject(int right, int left, int bottom, int top, int far, int near);
+    void DrawRect(const Rect&);
 
 private:
-    struct Buffer {
-        vk::Buffer buffer = nullptr;
-        vk::DeviceMemory memory = nullptr;
-        std::uint32_t size = 0;
-    };
-
-    struct MemInfo {
-        vk::DeviceSize size;
-        std::uint32_t index;
+    struct Uniform {
+        Mat4 project;
+        Mat4 view;
+        Mat4 model;
     };
 
     int maxFlightCount_;
@@ -33,14 +31,28 @@ private:
     std::vector<vk::Semaphore> imageAvaliableSems_;
     std::vector<vk::Semaphore> renderFinishSems_;
     std::vector<vk::CommandBuffer> cmdBufs_;
-    Buffer verticesBuffer_;
-    Buffer indicesBuffer_;
+    std::unique_ptr<Buffer> verticesBuffer_;
+    std::unique_ptr<Buffer> indicesBuffer_;
+    Mat4 projectMat_;
+    Mat4 viewMat_;
+    std::vector<std::unique_ptr<Buffer>> uniformBuffers_;
+    vk::DescriptorPool descriptorPool_;
+    std::vector<vk::DescriptorSet> descriptorSets_;
 
     void createFences();
     void createSemaphores();
     void createCmdBuffers();
     void createBuffers();
+    void createUniformBuffers(int flightCount);
     void bufferData();
+    void bufferVertexData();
+    void bufferIndicesData();
+    void bufferUniformData(int count, const Mat4& model);
+    void initMats();
+    void createDescriptorPool(int flightCount);
+    std::vector<vk::DescriptorSet> allocDescriptorSet(int flightCount);
+    void allocDescriptorSets(int flightCount);
+    void updateDescriptorSets();
 
     std::uint32_t queryBufferMemTypeIndex(std::uint32_t, vk::MemoryPropertyFlags);
 };
