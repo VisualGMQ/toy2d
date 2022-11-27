@@ -13,6 +13,7 @@ Renderer::Renderer(int maxFlightCount): maxFlightCount_(maxFlightCount), curFram
     bufferData();
     createDescriptorPool(maxFlightCount);
     allocDescriptorSets(maxFlightCount);
+    updateDescriptorSets();
     initMats();
 }
 
@@ -50,7 +51,6 @@ void Renderer::DrawRect(const Rect& rect) {
 
     auto model = Mat4::CreateTranslate(rect.position).Mul(Mat4::CreateScale(rect.size));
     bufferUniformData(curFrame_, model);
-    updateDescriptorSets();
 
     auto& cmdMgr = ctx.commandManager;
     auto& cmd = cmdBufs_[curFrame_];
@@ -254,7 +254,7 @@ void Renderer::updateDescriptorSets() {
                  .setDstBinding(0)
                  .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                  .setDstArrayElement(0)
-                 .setDstSet(descriptorSets_[curFrame_]);
+                 .setDstSet(descriptorSets_[i]);
         Context::Instance().device.updateDescriptorSets(writeInfo, {});
     }
 }
