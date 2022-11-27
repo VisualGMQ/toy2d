@@ -8,6 +8,7 @@ void Init(std::vector<const char*>& extensions, Context::GetSurfaceCallback cb, 
     Context::Init(extensions, cb);
     auto& ctx = Context::Instance();
     ctx.initSwapchain(windowWidth, windowHeight);
+    ctx.initShaderModules();
     ctx.initRenderProcess();
     ctx.initGraphicsPipeline();
     ctx.swapchain->InitFramebuffers();

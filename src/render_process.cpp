@@ -6,25 +6,24 @@
 namespace toy2d {
 
 RenderProcess::RenderProcess() {
-    descSetLayout = createDescriptorSetLayout();
     layout = createLayout();
     renderPass = createRenderPass();
     graphicsPipeline = nullptr;
 }
 
 RenderProcess::~RenderProcess() {
-    auto& device = Context::Instance().device;
-    device.destroyDescriptorSetLayout(descSetLayout);
+    auto& ctx = Context::Instance();
+    auto& device = ctx.device;
     device.destroyRenderPass(renderPass);
     device.destroyPipelineLayout(layout);
     device.destroyPipeline(graphicsPipeline);
 }
 
-void RenderProcess::RecreateGraphicsPipeline(const std::vector<char>& vertexSource, const std::vector<char>& fragSource) {
+void RenderProcess::RecreateGraphicsPipeline(const Shader& shader) {
     if (graphicsPipeline) {
         Context::Instance().device.destroyPipeline(graphicsPipeline);
     }
-    graphicsPipeline = createGraphicsPipeline(vertexSource, fragSource);
+    graphicsPipeline = createGraphicsPipeline(shader);
 }
 
 void RenderProcess::RecreateRenderPass() {
@@ -37,31 +36,22 @@ void RenderProcess::RecreateRenderPass() {
 vk::PipelineLayout RenderProcess::createLayout() {
     vk::PipelineLayoutCreateInfo createInfo;
     createInfo.setPushConstantRangeCount(0)
-              .setSetLayouts(descSetLayout);
+              .setSetLayouts(Context::Instance().shader->GetDescriptorSetLayouts());
 
     return Context::Instance().device.createPipelineLayout(createInfo);
 }
 
-vk::Pipeline RenderProcess::createGraphicsPipeline(const std::vector<char>& vertexSource, const std::vector<char>& fragSource) {
+vk::Pipeline RenderProcess::createGraphicsPipeline(const Shader& shader) {
     auto& ctx = Context::Instance();
 
     vk::GraphicsPipelineCreateInfo createInfo;
 
     // 0. shader prepare
-    vk::ShaderModuleCreateInfo vertexModuleCreateInfo, fragModuleCreateInfo;
-    vertexModuleCreateInfo.codeSize = vertexSource.size();
-    vertexModuleCreateInfo.pCode = (std::uint32_t*)vertexSource.data();
-    fragModuleCreateInfo.codeSize = fragSource.size();
-    fragModuleCreateInfo.pCode = (std::uint32_t*)fragSource.data();
-
-    auto vertexModule = ctx.device.createShaderModule(vertexModuleCreateInfo);
-    auto fragModule = ctx.device.createShaderModule(fragModuleCreateInfo);
-
     std::array<vk::PipelineShaderStageCreateInfo, 2> stageCreateInfos;
-    stageCreateInfos[0].setModule(vertexModule)
+    stageCreateInfos[0].setModule(shader.GetVertexModule())
                        .setPName("main")
                        .setStage(vk::ShaderStageFlagBits::eVertex);
-    stageCreateInfos[1].setModule(fragModule)
+    stageCreateInfos[1].setModule(shader.GetFragModule())
                        .setPName("main")
                        .setStage(vk::ShaderStageFlagBits::eFragment);
 
@@ -128,10 +118,6 @@ vk::Pipeline RenderProcess::createGraphicsPipeline(const std::vector<char>& vert
         std::cout << "create graphics pipeline failed: " << result.result << std::endl;
     }
 
-    // clear shader module
-    ctx.device.destroyShaderModule(vertexModule);
-    ctx.device.destroyShaderModule(fragModule);
-
     return result.value;
 }
 
@@ -170,18 +156,6 @@ vk::RenderPass RenderProcess::createRenderPass() {
               .setSubpasses(subpassDesc);
 
     return Context::Instance().device.createRenderPass(createInfo);
-}
-
-vk::DescriptorSetLayout RenderProcess::createDescriptorSetLayout() {
-    vk::DescriptorSetLayoutCreateInfo createInfo;
-    vk::DescriptorSetLayoutBinding binding;
-    binding.setBinding(0)
-           .setDescriptorCount(1)
-           .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-           .setStageFlags(vk::ShaderStageFlagBits::eVertex);
-    createInfo.setBindings(binding);
-
-    return Context::Instance().device.createDescriptorSetLayout(createInfo);
 }
 
 }

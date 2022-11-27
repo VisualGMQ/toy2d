@@ -1,6 +1,7 @@
 #pragma once
 
 #include "vulkan/vulkan.hpp"
+#include "toy2d/shader.hpp"
 #include <fstream>
 
 namespace toy2d {
@@ -10,20 +11,17 @@ public:
     vk::Pipeline graphicsPipeline = nullptr;
     vk::RenderPass renderPass = nullptr;
     vk::PipelineLayout layout = nullptr;
-    // TODO encapusolue DescriptorSetLayout into Shader
-    vk::DescriptorSetLayout descSetLayout = nullptr;
 
     RenderProcess();
     ~RenderProcess();
 
-    void RecreateGraphicsPipeline(const std::vector<char>& vertexSource, const std::vector<char>& fragSource);
+    void RecreateGraphicsPipeline(const Shader& shader);
     void RecreateRenderPass();
 
 private:
     vk::PipelineLayout createLayout();
-    vk::Pipeline createGraphicsPipeline(const std::vector<char>& vertexSource, const std::vector<char>& fragSource);
+    vk::Pipeline createGraphicsPipeline(const Shader& shader);
     vk::RenderPass createRenderPass();
-    vk::DescriptorSetLayout createDescriptorSetLayout();
 };
 
 }

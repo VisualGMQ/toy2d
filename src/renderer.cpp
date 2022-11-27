@@ -231,7 +231,7 @@ void Renderer::createDescriptorPool(int flightCount) {
 }
 
 std::vector<vk::DescriptorSet> Renderer::allocDescriptorSet(int flightCount) {
-    std::vector layouts(flightCount, Context::Instance().renderProcess->descSetLayout);
+    std::vector layouts(flightCount, Context::Instance().shader->GetDescriptorSetLayouts()[0]);
     vk::DescriptorSetAllocateInfo allocInfo;
     allocInfo.setDescriptorPool(descriptorPool_)
 			 .setSetLayouts(layouts);

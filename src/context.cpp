@@ -125,16 +125,21 @@ void Context::initRenderProcess() {
 }
 
 void Context::initGraphicsPipeline() {
-    auto vertexSource = ReadWholeFile("./vert.spv");
-    auto fragSource = ReadWholeFile("./frag.spv");
-    renderProcess->RecreateGraphicsPipeline(vertexSource, fragSource);
+    renderProcess->RecreateGraphicsPipeline(*shader);
 }
 
 void Context::initCommandPool() {
     commandManager = std::make_unique<CommandManager>();
 }
 
+void Context::initShaderModules() {
+    auto vertexSource = ReadWholeFile("./vert.spv");
+    auto fragSource = ReadWholeFile("./frag.spv");
+    shader = std::make_unique<Shader>(vertexSource, fragSource);
+}
+
 Context::~Context() {
+    shader.reset();
     commandManager.reset();
     renderProcess.reset();
     swapchain.reset();

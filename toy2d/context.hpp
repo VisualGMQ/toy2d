@@ -12,6 +12,7 @@
 #include "render_process.hpp"
 #include "tool.hpp"
 #include "command_manager.hpp"
+#include "shader.hpp"
 
 namespace toy2d {
 
@@ -37,6 +38,7 @@ public:
     std::unique_ptr<Swapchain> swapchain;
     std::unique_ptr<RenderProcess> renderProcess;
     std::unique_ptr<CommandManager> commandManager;
+    std::unique_ptr<Shader> shader;
 
 private:
     static Context* instance_;
@@ -51,6 +53,7 @@ private:
     void initSwapchain(int windowWidth, int windowHeight);
     void initGraphicsPipeline();
     void initCommandPool();
+    void initShaderModules();
 
     vk::Instance createInstance(std::vector<const char*>& extensions);
     vk::PhysicalDevice pickupPhysicalDevice();
