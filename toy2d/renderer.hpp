@@ -17,9 +17,10 @@ public:
 
     void SetProject(int right, int left, int bottom, int top, int far, int near);
     void DrawRect(const Rect&);
+    void SetDrawColor(const Color&);
 
 private:
-    struct Uniform {
+    struct MVP {
         Mat4 project;
         Mat4 view;
         Mat4 model;
@@ -47,7 +48,7 @@ private:
     void bufferData();
     void bufferVertexData();
     void bufferIndicesData();
-    void bufferUniformData(int count, const Mat4& model);
+    void bufferMVPData(const Mat4& model);
     void initMats();
     void createDescriptorPool(int flightCount);
     std::vector<vk::DescriptorSet> allocDescriptorSet(int flightCount);
