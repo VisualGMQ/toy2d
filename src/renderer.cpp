@@ -26,6 +26,8 @@ Renderer::~Renderer() {
     indicesBuffer_.reset();
     uniformBuffers_.clear();
     deviceUniformBuffers_.clear();
+    colorBuffers_.clear();
+    deviceColorBuffers_.clear();
     for (auto& sem : imageAvaliableSems_) {
         device.destroySemaphore(sem);
     }
@@ -151,20 +153,31 @@ void Renderer::createBuffers() {
 void Renderer::createUniformBuffers(int flightCount) {
     uniformBuffers_.resize(flightCount);
     //            three mat4                  one color
-    size_t size = sizeof(float) * 4 * 4 * 4 + sizeof(float) * 3;
+    size_t size = sizeof(float) * 4 * 4 * 3;
     for (auto& buffer : uniformBuffers_) {
         buffer.reset(new Buffer(vk::BufferUsageFlagBits::eTransferSrc,
                      size,
                      vk::MemoryPropertyFlagBits::eHostVisible|vk::MemoryPropertyFlagBits::eHostCoherent));
-        // std::cout << "uniform buffers: " << buffer->size << ", " << buffer->requireSize << std::endl;
     }
-
     deviceUniformBuffers_.resize(flightCount);
     for (auto& buffer : deviceUniformBuffers_) {
         buffer.reset(new Buffer(vk::BufferUsageFlagBits::eUniformBuffer|vk::BufferUsageFlagBits::eTransferDst,
                      size,
                      vk::MemoryPropertyFlagBits::eDeviceLocal));
-        // std::cout << "device uniform buffers: " << buffer->size << ", " << buffer->requireSize << std::endl;
+    }
+
+    colorBuffers_.resize(flightCount);
+    size = sizeof(float) * 3;
+    for (auto& buffer : colorBuffers_) {
+        buffer.reset(new Buffer(vk::BufferUsageFlagBits::eTransferSrc,
+                     size,
+                     vk::MemoryPropertyFlagBits::eHostVisible|vk::MemoryPropertyFlagBits::eHostCoherent));
+    }
+    deviceColorBuffers_.resize(flightCount);
+    for (auto& buffer : deviceColorBuffers_) {
+        buffer.reset(new Buffer(vk::BufferUsageFlagBits::eUniformBuffer|vk::BufferUsageFlagBits::eTransferDst,
+                     size,
+                     vk::MemoryPropertyFlagBits::eDeviceLocal));
     }
 }
 
@@ -244,14 +257,13 @@ void Renderer::bufferMVPData(const Mat4& model) {
 }
 
 void Renderer::SetDrawColor(const Color& color) {
-    auto& uniformBuffer = uniformBuffers_[curFrame_];
+    auto& uniformBuffer = colorBuffers_[curFrame_];
     auto& device = Context::Instance().device;
-    size_t offset = sizeof(float) * 4 * 4 * 3;
     void* ptr = device.mapMemory(uniformBuffer->memory, 0, uniformBuffer->requireSize);
-        memcpy(((unsigned char*)ptr) + offset, (void*)&color, sizeof(float) * 3);
+        memcpy(ptr, (void*)&color, sizeof(float) * 3);
     device.unmapMemory(uniformBuffer->memory);
 
-    transformBuffer2Device(*uniformBuffer, *deviceUniformBuffers_[curFrame_], offset, offset, sizeof(float) * 3);
+    transformBuffer2Device(*uniformBuffer, *deviceColorBuffers_[curFrame_], 0, 0, sizeof(float) * 3);
 }
 
 void Renderer::initMats() {
@@ -303,8 +315,8 @@ void Renderer::updateDescriptorSets() {
 
         // bind Color buffer
         vk::DescriptorBufferInfo bufferInfo2;
-        bufferInfo2.setBuffer(deviceUniformBuffers_[i]->buffer)
-            .setOffset(sizeof(float) * 4 * 4 * 3)
+        bufferInfo2.setBuffer(deviceColorBuffers_[i]->buffer)
+            .setOffset(0)
             .setRange(sizeof(float) * 3);
 
         writeInfos[1].setBufferInfo(bufferInfo2)
