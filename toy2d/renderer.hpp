@@ -37,6 +37,7 @@ private:
     Mat4 projectMat_;
     Mat4 viewMat_;
     std::vector<std::unique_ptr<Buffer>> uniformBuffers_;
+    std::vector<std::unique_ptr<Buffer>> deviceUniformBuffers_;
     vk::DescriptorPool descriptorPool_;
     std::vector<vk::DescriptorSet> descriptorSets_;
 
@@ -54,6 +55,7 @@ private:
     std::vector<vk::DescriptorSet> allocDescriptorSet(int flightCount);
     void allocDescriptorSets(int flightCount);
     void updateDescriptorSets();
+    void transformBuffer2Device(Buffer& src, Buffer& dst, size_t srcOffset, size_t dstOffset, size_t size);
 
     std::uint32_t queryBufferMemTypeIndex(std::uint32_t, vk::MemoryPropertyFlags);
 };

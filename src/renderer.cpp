@@ -25,6 +25,7 @@ Renderer::~Renderer() {
     verticesBuffer_.reset();
     indicesBuffer_.reset();
     uniformBuffers_.clear();
+    deviceUniformBuffers_.clear();
     for (auto& sem : imageAvaliableSems_) {
         device.destroySemaphore(sem);
     }
@@ -44,15 +45,15 @@ void Renderer::DrawRect(const Rect& rect) {
     }
     device.resetFences(fences_[curFrame_]);
 
+    auto model = Mat4::CreateTranslate(rect.position).Mul(Mat4::CreateScale(rect.size));
+    bufferMVPData(model);
+
     auto& swapchain = ctx.swapchain;
     auto resultValue = device.acquireNextImageKHR(swapchain->swapchain, std::numeric_limits<std::uint64_t>::max(), imageAvaliableSems_[curFrame_], nullptr);
     if (resultValue.result != vk::Result::eSuccess) {
         throw std::runtime_error("wait for image in swapchain failed");
     }
     auto imageIndex = resultValue.value;
-
-    auto model = Mat4::CreateTranslate(rect.position).Mul(Mat4::CreateScale(rect.size));
-    bufferMVPData(model);
 
     auto& cmdMgr = ctx.commandManager;
     auto& cmd = cmdBufs_[curFrame_];
@@ -149,13 +150,41 @@ void Renderer::createBuffers() {
 
 void Renderer::createUniformBuffers(int flightCount) {
     uniformBuffers_.resize(flightCount);
-
+    //            three mat4                  one color
+    size_t size = sizeof(float) * 4 * 4 * 4 + sizeof(float) * 3;
     for (auto& buffer : uniformBuffers_) {
-        buffer.reset(new Buffer(vk::BufferUsageFlagBits::eUniformBuffer,
-                     // three mat4               one color
-                     sizeof(float) * 4 * 4 * 3 + sizeof(float) * 3,
+        buffer.reset(new Buffer(vk::BufferUsageFlagBits::eTransferSrc,
+                     size,
                      vk::MemoryPropertyFlagBits::eHostVisible|vk::MemoryPropertyFlagBits::eHostCoherent));
+        // std::cout << "uniform buffers: " << buffer->size << ", " << buffer->requireSize << std::endl;
     }
+
+    deviceUniformBuffers_.resize(flightCount);
+    for (auto& buffer : deviceUniformBuffers_) {
+        buffer.reset(new Buffer(vk::BufferUsageFlagBits::eUniformBuffer|vk::BufferUsageFlagBits::eTransferDst,
+                     size,
+                     vk::MemoryPropertyFlagBits::eDeviceLocal));
+        // std::cout << "device uniform buffers: " << buffer->size << ", " << buffer->requireSize << std::endl;
+    }
+}
+
+void Renderer::transformBuffer2Device(Buffer& src, Buffer& dst, size_t srcOffset, size_t dstOffset, size_t size) {
+    auto cmdBuf = Context::Instance().commandManager->CreateOneCommandBuffer();
+    vk::CommandBufferBeginInfo beginInfo;
+    beginInfo.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+    cmdBuf.begin(beginInfo);
+        vk::BufferCopy region;
+        region.setSrcOffset(srcOffset)
+              .setDstOffset(dstOffset)
+              .setSize(size);
+        cmdBuf.copyBuffer(src.buffer, dst.buffer, region);
+    cmdBuf.end();
+
+    vk::SubmitInfo submitInfo;
+    submitInfo.setCommandBuffers(cmdBuf);
+    Context::Instance().graphicsQueue.submit(submitInfo);
+    Context::Instance().graphicsQueue.waitIdle();
+    Context::Instance().commandManager->FreeCmd(cmdBuf);
 }
 
 std::uint32_t Renderer::queryBufferMemTypeIndex(std::uint32_t type, vk::MemoryPropertyFlags flag) {
@@ -187,8 +216,6 @@ void Renderer::bufferVertexData() {
     void* ptr = device.mapMemory(verticesBuffer_->memory, 0, verticesBuffer_->size);
         memcpy(ptr, vertices, sizeof(vertices));
     device.unmapMemory(verticesBuffer_->memory);
-
-
 }
 
 void Renderer::bufferIndicesData() {
@@ -212,14 +239,19 @@ void Renderer::bufferMVPData(const Mat4& model) {
     void* ptr = device.mapMemory(uniformBuffer->memory, 0, uniformBuffer->size);
         memcpy(ptr, (void*)&mvp, sizeof(mvp));
     device.unmapMemory(uniformBuffer->memory);
+
+    transformBuffer2Device(*uniformBuffer, *deviceUniformBuffers_[curFrame_], 0, 0, sizeof(float) * 4 * 4 * 3);
 }
 
 void Renderer::SetDrawColor(const Color& color) {
     auto& uniformBuffer = uniformBuffers_[curFrame_];
     auto& device = Context::Instance().device;
-    void* ptr = device.mapMemory(uniformBuffer->memory, 0, uniformBuffer->size);
-        memcpy(((unsigned char*)ptr) + sizeof(float) * 4 * 4 * 3, (void*)&color, sizeof(color));
+    size_t offset = sizeof(float) * 4 * 4 * 3;
+    void* ptr = device.mapMemory(uniformBuffer->memory, 0, uniformBuffer->requireSize);
+        memcpy(((unsigned char*)ptr) + offset, (void*)&color, sizeof(float) * 3);
     device.unmapMemory(uniformBuffer->memory);
+
+    transformBuffer2Device(*uniformBuffer, *deviceUniformBuffers_[curFrame_], offset, offset, sizeof(float) * 3);
 }
 
 void Renderer::initMats() {
@@ -257,7 +289,7 @@ void Renderer::updateDescriptorSets() {
     for (int i = 0; i < descriptorSets_.size(); i++) {
         // bind MVP buffer
         vk::DescriptorBufferInfo bufferInfo1;
-        bufferInfo1.setBuffer(uniformBuffers_[i]->buffer)
+        bufferInfo1.setBuffer(deviceUniformBuffers_[i]->buffer)
                    .setOffset(0)
 				   .setRange(sizeof(float) * 4 * 4 * 3);
 
@@ -271,7 +303,7 @@ void Renderer::updateDescriptorSets() {
 
         // bind Color buffer
         vk::DescriptorBufferInfo bufferInfo2;
-        bufferInfo2.setBuffer(uniformBuffers_[i]->buffer)
+        bufferInfo2.setBuffer(deviceUniformBuffers_[i]->buffer)
             .setOffset(sizeof(float) * 4 * 4 * 3)
             .setRange(sizeof(float) * 3);
 
