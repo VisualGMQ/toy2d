@@ -7,6 +7,7 @@ namespace toy2d {
 struct Buffer {
     vk::Buffer buffer;
     vk::DeviceMemory memory;
+    void* map;
     size_t size;
     size_t requireSize;
 

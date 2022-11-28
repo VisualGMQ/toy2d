@@ -25,9 +25,7 @@ Renderer::~Renderer() {
     verticesBuffer_.reset();
     indicesBuffer_.reset();
     uniformBuffers_.clear();
-    deviceUniformBuffers_.clear();
     colorBuffers_.clear();
-    deviceColorBuffers_.clear();
     for (auto& sem : imageAvaliableSems_) {
         device.destroySemaphore(sem);
     }
@@ -155,29 +153,17 @@ void Renderer::createUniformBuffers(int flightCount) {
     //            three mat4                  one color
     size_t size = sizeof(float) * 4 * 4 * 3;
     for (auto& buffer : uniformBuffers_) {
-        buffer.reset(new Buffer(vk::BufferUsageFlagBits::eTransferSrc,
+        buffer.reset(new Buffer(vk::BufferUsageFlagBits::eUniformBuffer,
                      size,
                      vk::MemoryPropertyFlagBits::eHostVisible|vk::MemoryPropertyFlagBits::eHostCoherent));
-    }
-    deviceUniformBuffers_.resize(flightCount);
-    for (auto& buffer : deviceUniformBuffers_) {
-        buffer.reset(new Buffer(vk::BufferUsageFlagBits::eUniformBuffer|vk::BufferUsageFlagBits::eTransferDst,
-                     size,
-                     vk::MemoryPropertyFlagBits::eDeviceLocal));
     }
 
     colorBuffers_.resize(flightCount);
     size = sizeof(float) * 3;
     for (auto& buffer : colorBuffers_) {
-        buffer.reset(new Buffer(vk::BufferUsageFlagBits::eTransferSrc,
+        buffer.reset(new Buffer(vk::BufferUsageFlagBits::eUniformBuffer,
                      size,
                      vk::MemoryPropertyFlagBits::eHostVisible|vk::MemoryPropertyFlagBits::eHostCoherent));
-    }
-    deviceColorBuffers_.resize(flightCount);
-    for (auto& buffer : deviceColorBuffers_) {
-        buffer.reset(new Buffer(vk::BufferUsageFlagBits::eUniformBuffer|vk::BufferUsageFlagBits::eTransferDst,
-                     size,
-                     vk::MemoryPropertyFlagBits::eDeviceLocal));
     }
 }
 
@@ -197,6 +183,7 @@ void Renderer::transformBuffer2Device(Buffer& src, Buffer& dst, size_t srcOffset
     submitInfo.setCommandBuffers(cmdBuf);
     Context::Instance().graphicsQueue.submit(submitInfo);
     Context::Instance().graphicsQueue.waitIdle();
+    Context::Instance().device.waitIdle();
     Context::Instance().commandManager->FreeCmd(cmdBuf);
 }
 
@@ -226,9 +213,7 @@ void Renderer::bufferVertexData() {
         Vec{{-0.5, 0.5}},
     };
     auto& device = Context::Instance().device;
-    void* ptr = device.mapMemory(verticesBuffer_->memory, 0, verticesBuffer_->size);
-        memcpy(ptr, vertices, sizeof(vertices));
-    device.unmapMemory(verticesBuffer_->memory);
+    memcpy(verticesBuffer_->map, vertices, sizeof(vertices));
 }
 
 void Renderer::bufferIndicesData() {
@@ -237,9 +222,7 @@ void Renderer::bufferIndicesData() {
         1, 2, 3,
     };
     auto& device = Context::Instance().device;
-    void* ptr = device.mapMemory(indicesBuffer_->memory, 0, indicesBuffer_->size);
-        memcpy(ptr, indices, sizeof(indices));
-    device.unmapMemory(indicesBuffer_->memory);
+    memcpy(indicesBuffer_->map, indices, sizeof(indices));
 }
 
 void Renderer::bufferMVPData(const Mat4& model) {
@@ -248,22 +231,16 @@ void Renderer::bufferMVPData(const Mat4& model) {
     mvp.view = viewMat_;
     mvp.model = model;
     auto& device = Context::Instance().device;
-    auto& uniformBuffer = uniformBuffers_[curFrame_];
-    void* ptr = device.mapMemory(uniformBuffer->memory, 0, uniformBuffer->size);
-        memcpy(ptr, (void*)&mvp, sizeof(mvp));
-    device.unmapMemory(uniformBuffer->memory);
-
-    transformBuffer2Device(*uniformBuffer, *deviceUniformBuffers_[curFrame_], 0, 0, sizeof(float) * 4 * 4 * 3);
+    for (auto& buffer : uniformBuffers_) {
+        memcpy(buffer->map, (void*)&mvp, sizeof(mvp));
+    }
 }
 
 void Renderer::SetDrawColor(const Color& color) {
-    auto& uniformBuffer = colorBuffers_[curFrame_];
-    auto& device = Context::Instance().device;
-    void* ptr = device.mapMemory(uniformBuffer->memory, 0, uniformBuffer->requireSize);
-        memcpy(ptr, (void*)&color, sizeof(float) * 3);
-    device.unmapMemory(uniformBuffer->memory);
-
-    transformBuffer2Device(*uniformBuffer, *deviceColorBuffers_[curFrame_], 0, 0, sizeof(float) * 3);
+    for (auto& buffer : colorBuffers_) {
+        auto& device = Context::Instance().device;
+        memcpy(buffer->map, (void*)&color, sizeof(float) * 3);
+    }
 }
 
 void Renderer::initMats() {
@@ -278,10 +255,11 @@ void Renderer::SetProject(int right, int left, int bottom, int top, int far, int
 void Renderer::createDescriptorPool(int flightCount) {
     vk::DescriptorPoolCreateInfo createInfo;
     vk::DescriptorPoolSize size;
-    size.setDescriptorCount(flightCount * 2)
+    size.setDescriptorCount(flightCount)
         .setType(vk::DescriptorType::eUniformBuffer);
-    createInfo.setPoolSizes(size)
-			  .setMaxSets(flightCount * 2);
+    std::vector<vk::DescriptorPoolSize> sizes(2, size);
+    createInfo.setPoolSizes(sizes)
+			  .setMaxSets(flightCount);
     descriptorPool_ = Context::Instance().device.createDescriptorPool(createInfo);
 }
 
@@ -301,7 +279,7 @@ void Renderer::updateDescriptorSets() {
     for (int i = 0; i < descriptorSets_.size(); i++) {
         // bind MVP buffer
         vk::DescriptorBufferInfo bufferInfo1;
-        bufferInfo1.setBuffer(deviceUniformBuffers_[i]->buffer)
+        bufferInfo1.setBuffer(uniformBuffers_[i]->buffer)
                    .setOffset(0)
 				   .setRange(sizeof(float) * 4 * 4 * 3);
 
@@ -315,7 +293,7 @@ void Renderer::updateDescriptorSets() {
 
         // bind Color buffer
         vk::DescriptorBufferInfo bufferInfo2;
-        bufferInfo2.setBuffer(deviceColorBuffers_[i]->buffer)
+        bufferInfo2.setBuffer(colorBuffers_[i]->buffer)
             .setOffset(0)
             .setRange(sizeof(float) * 3);
 

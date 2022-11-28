@@ -2,8 +2,6 @@
 
 Toy2d is a toy renderer imitates `SDL_Renderer` when I'm learning Vulkan.
 
-**WARNING: this branch has some mistake and wait for correct!**
-
 ## compile
 
 use CMake to compile:
