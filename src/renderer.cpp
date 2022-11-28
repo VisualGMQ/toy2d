@@ -15,6 +15,8 @@ Renderer::Renderer(int maxFlightCount): maxFlightCount_(maxFlightCount), curFram
     allocDescriptorSets(maxFlightCount);
     updateDescriptorSets();
     initMats();
+
+    SetDrawColor(Color{0, 0, 0});
 }
 
 Renderer::~Renderer() {
@@ -23,6 +25,7 @@ Renderer::~Renderer() {
     verticesBuffer_.reset();
     indicesBuffer_.reset();
     uniformBuffers_.clear();
+    colorBuffers_.clear();
     for (auto& sem : imageAvaliableSems_) {
         device.destroySemaphore(sem);
     }
@@ -42,15 +45,15 @@ void Renderer::DrawRect(const Rect& rect) {
     }
     device.resetFences(fences_[curFrame_]);
 
+    auto model = Mat4::CreateTranslate(rect.position).Mul(Mat4::CreateScale(rect.size));
+    bufferMVPData(model);
+
     auto& swapchain = ctx.swapchain;
     auto resultValue = device.acquireNextImageKHR(swapchain->swapchain, std::numeric_limits<std::uint64_t>::max(), imageAvaliableSems_[curFrame_], nullptr);
     if (resultValue.result != vk::Result::eSuccess) {
         throw std::runtime_error("wait for image in swapchain failed");
     }
     auto imageIndex = resultValue.value;
-
-    auto model = Mat4::CreateTranslate(rect.position).Mul(Mat4::CreateScale(rect.size));
-    bufferUniformData(curFrame_, model);
 
     auto& cmdMgr = ctx.commandManager;
     auto& cmd = cmdBufs_[curFrame_];
@@ -147,12 +150,54 @@ void Renderer::createBuffers() {
 
 void Renderer::createUniformBuffers(int flightCount) {
     uniformBuffers_.resize(flightCount);
-
+    //            three mat4                  one color
+    size_t size = sizeof(float) * 4 * 4 * 3;
     for (auto& buffer : uniformBuffers_) {
-        buffer.reset(new Buffer(vk::BufferUsageFlagBits::eUniformBuffer,
-                     sizeof(float) * 4 * 4 * 3,
+        buffer.reset(new Buffer(vk::BufferUsageFlagBits::eTransferSrc,
+                     size,
                      vk::MemoryPropertyFlagBits::eHostVisible|vk::MemoryPropertyFlagBits::eHostCoherent));
     }
+    deviceUniformBuffers_.resize(flightCount);
+    for (auto& buffer : deviceUniformBuffers_) {
+        buffer.reset(new Buffer(vk::BufferUsageFlagBits::eTransferDst|vk::BufferUsageFlagBits::eUniformBuffer,
+                     size,
+                     vk::MemoryPropertyFlagBits::eDeviceLocal));
+    }
+
+    colorBuffers_.resize(flightCount);
+    size = sizeof(float) * 3;
+    for (auto& buffer : colorBuffers_) {
+        buffer.reset(new Buffer(vk::BufferUsageFlagBits::eTransferSrc,
+                     size,
+                     vk::MemoryPropertyFlagBits::eHostCoherent|vk::MemoryPropertyFlagBits::eHostVisible));
+    }
+
+    deviceColorBuffers_.resize(flightCount);
+    for (auto& buffer : deviceColorBuffers_) {
+        buffer.reset(new Buffer(vk::BufferUsageFlagBits::eTransferDst|vk::BufferUsageFlagBits::eUniformBuffer,
+                     size,
+                     vk::MemoryPropertyFlagBits::eDeviceLocal));
+    }
+}
+
+void Renderer::transformBuffer2Device(Buffer& src, Buffer& dst, size_t srcOffset, size_t dstOffset, size_t size) {
+    auto cmdBuf = Context::Instance().commandManager->CreateOneCommandBuffer();
+    vk::CommandBufferBeginInfo beginInfo;
+    beginInfo.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+    cmdBuf.begin(beginInfo);
+        vk::BufferCopy region;
+        region.setSrcOffset(srcOffset)
+              .setDstOffset(dstOffset)
+              .setSize(size);
+        cmdBuf.copyBuffer(src.buffer, dst.buffer, region);
+    cmdBuf.end();
+
+    vk::SubmitInfo submitInfo;
+    submitInfo.setCommandBuffers(cmdBuf);
+    Context::Instance().graphicsQueue.submit(submitInfo);
+    Context::Instance().graphicsQueue.waitIdle();
+    Context::Instance().device.waitIdle();
+    Context::Instance().commandManager->FreeCmd(cmdBuf);
 }
 
 std::uint32_t Renderer::queryBufferMemTypeIndex(std::uint32_t type, vk::MemoryPropertyFlags flag) {
@@ -181,11 +226,7 @@ void Renderer::bufferVertexData() {
         Vec{{-0.5, 0.5}},
     };
     auto& device = Context::Instance().device;
-    void* ptr = device.mapMemory(verticesBuffer_->memory, 0, verticesBuffer_->size);
-        memcpy(ptr, vertices, sizeof(vertices));
-    device.unmapMemory(verticesBuffer_->memory);
-
-
+    memcpy(verticesBuffer_->map, vertices, sizeof(vertices));
 }
 
 void Renderer::bufferIndicesData() {
@@ -194,21 +235,31 @@ void Renderer::bufferIndicesData() {
         1, 2, 3,
     };
     auto& device = Context::Instance().device;
-    void* ptr = device.mapMemory(indicesBuffer_->memory, 0, indicesBuffer_->size);
-        memcpy(ptr, indices, sizeof(indices));
-    device.unmapMemory(indicesBuffer_->memory);
+    memcpy(indicesBuffer_->map, indices, sizeof(indices));
 }
 
-void Renderer::bufferUniformData(int count, const Mat4& model) {
-    Uniform uniform;
-    uniform.project = projectMat_;
-    uniform.view = viewMat_;
-    uniform.model = model;
+void Renderer::bufferMVPData(const Mat4& model) {
+    MVP mvp;
+    mvp.project = projectMat_;
+    mvp.view = viewMat_;
+    mvp.model = model;
     auto& device = Context::Instance().device;
-    auto& uniformBuffer = uniformBuffers_[count];
-    void* ptr = device.mapMemory(uniformBuffer->memory, 0, uniformBuffer->size);
-        memcpy(ptr, (void*)&uniform, sizeof(uniform));
-    device.unmapMemory(uniformBuffer->memory);
+    for (int i = 0; i < uniformBuffers_.size(); i++) {
+        auto& buffer = uniformBuffers_[i];
+        memcpy(buffer->map, (void*)&mvp, sizeof(mvp));
+        transformBuffer2Device(*buffer, *deviceUniformBuffers_[i], 0, 0, buffer->size);
+    }
+}
+
+void Renderer::SetDrawColor(const Color& color) {
+    for (int i = 0; i < colorBuffers_.size(); i++) {
+        auto& buffer = colorBuffers_[i];
+        auto& device = Context::Instance().device;
+        memcpy(buffer->map, (void*)&color, sizeof(float) * 3);
+
+        transformBuffer2Device(*buffer, *deviceColorBuffers_[i], 0, 0, buffer->size);
+    }
+
 }
 
 void Renderer::initMats() {
@@ -225,7 +276,8 @@ void Renderer::createDescriptorPool(int flightCount) {
     vk::DescriptorPoolSize size;
     size.setDescriptorCount(flightCount)
         .setType(vk::DescriptorType::eUniformBuffer);
-    createInfo.setPoolSizes(size)
+    std::vector<vk::DescriptorPoolSize> sizes(2, size);
+    createInfo.setPoolSizes(sizes)
 			  .setMaxSets(flightCount);
     descriptorPool_ = Context::Instance().device.createDescriptorPool(createInfo);
 }
@@ -244,18 +296,34 @@ void Renderer::allocDescriptorSets(int flightCount) {
 
 void Renderer::updateDescriptorSets() {
     for (int i = 0; i < descriptorSets_.size(); i++) {
-        vk::DescriptorBufferInfo bufferInfo;
-        bufferInfo.setBuffer(uniformBuffers_[i]->buffer)
-                  .setOffset(0)
-                  .setRange(sizeof(Uniform));
+        // bind MVP buffer
+        vk::DescriptorBufferInfo bufferInfo1;
+        bufferInfo1.setBuffer(deviceUniformBuffers_[i]->buffer)
+                   .setOffset(0)
+				   .setRange(sizeof(float) * 4 * 4 * 3);
 
-        vk::WriteDescriptorSet writeInfo;
-        writeInfo.setBufferInfo(bufferInfo)
-                 .setDstBinding(0)
-                 .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-                 .setDstArrayElement(0)
-                 .setDstSet(descriptorSets_[i]);
-        Context::Instance().device.updateDescriptorSets(writeInfo, {});
+        std::vector<vk::WriteDescriptorSet> writeInfos(2);
+        writeInfos[0].setBufferInfo(bufferInfo1)
+                     .setDstBinding(0)
+                     .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                     .setDescriptorCount(1)
+                     .setDstArrayElement(0)
+                     .setDstSet(descriptorSets_[i]);
+
+        // bind Color buffer
+        vk::DescriptorBufferInfo bufferInfo2;
+        bufferInfo2.setBuffer(deviceColorBuffers_[i]->buffer)
+            .setOffset(0)
+            .setRange(sizeof(float) * 3);
+
+        writeInfos[1].setBufferInfo(bufferInfo2)
+                     .setDstBinding(1)
+                     .setDstArrayElement(0)
+                     .setDescriptorCount(1)
+                     .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                     .setDstSet(descriptorSets_[i]);
+
+        Context::Instance().device.updateDescriptorSets(writeInfos, {});
     }
 }
 

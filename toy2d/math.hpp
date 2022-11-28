@@ -15,6 +15,10 @@ struct Vec {
     static vk::VertexInputBindingDescription GetBindingDescription();
 };
 
+struct Color {
+    float r, g, b;
+};
+
 using Size = Vec;
 
 class Mat4 {

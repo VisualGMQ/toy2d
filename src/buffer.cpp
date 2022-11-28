@@ -15,19 +15,28 @@ Buffer::Buffer(vk::BufferUsageFlags usage, size_t size, vk::MemoryPropertyFlags 
 
     auto requirements = device.getBufferMemoryRequirements(buffer);
     requireSize = requirements.size;
-    auto index = queryBufferMemTypeIndex(requirements.memoryTypeBits,
-                                         vk::MemoryPropertyFlagBits::eHostCoherent|vk::MemoryPropertyFlagBits::eHostVisible);
+    auto index = queryBufferMemTypeIndex(requirements.memoryTypeBits, memProperty);
     vk::MemoryAllocateInfo allocInfo;
     allocInfo.setMemoryTypeIndex(index)
              .setAllocationSize(requirements.size);
     memory = device.allocateMemory(allocInfo);
 
     device.bindBufferMemory(buffer, memory, 0);
+
+    if (memProperty & vk::MemoryPropertyFlagBits::eHostVisible) {
+        map = device.mapMemory(memory, 0, size);
+    } else {
+        map = nullptr;
+    }
 }
 
 Buffer::~Buffer() {
-    Context::Instance().device.freeMemory(memory);
-    Context::Instance().device.destroyBuffer(buffer);
+    auto& device = Context::Instance().device;
+    if (map) {
+        device.unmapMemory(memory);
+    }
+    device.freeMemory(memory);
+    device.destroyBuffer(buffer);
 }
 
 std::uint32_t Buffer::queryBufferMemTypeIndex(std::uint32_t type, vk::MemoryPropertyFlags flag) {

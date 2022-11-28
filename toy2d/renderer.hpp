@@ -17,9 +17,10 @@ public:
 
     void SetProject(int right, int left, int bottom, int top, int far, int near);
     void DrawRect(const Rect&);
+    void SetDrawColor(const Color&);
 
 private:
-    struct Uniform {
+    struct MVP {
         Mat4 project;
         Mat4 view;
         Mat4 model;
@@ -36,6 +37,9 @@ private:
     Mat4 projectMat_;
     Mat4 viewMat_;
     std::vector<std::unique_ptr<Buffer>> uniformBuffers_;
+    std::vector<std::unique_ptr<Buffer>> colorBuffers_;
+    std::vector<std::unique_ptr<Buffer>> deviceUniformBuffers_;
+    std::vector<std::unique_ptr<Buffer>> deviceColorBuffers_;
     vk::DescriptorPool descriptorPool_;
     std::vector<vk::DescriptorSet> descriptorSets_;
 
@@ -47,12 +51,13 @@ private:
     void bufferData();
     void bufferVertexData();
     void bufferIndicesData();
-    void bufferUniformData(int count, const Mat4& model);
+    void bufferMVPData(const Mat4& model);
     void initMats();
     void createDescriptorPool(int flightCount);
     std::vector<vk::DescriptorSet> allocDescriptorSet(int flightCount);
     void allocDescriptorSets(int flightCount);
     void updateDescriptorSets();
+    void transformBuffer2Device(Buffer& src, Buffer& dst, size_t srcOffset, size_t dstOffset, size_t size);
 
     std::uint32_t queryBufferMemTypeIndex(std::uint32_t, vk::MemoryPropertyFlags);
 };

@@ -2,7 +2,7 @@
 
 layout(location = 0) in vec2 inPosition;
 
-layout(binding = 0) uniform UniformBuffer {
+layout(set = 0, binding = 0) uniform UniformBuffer {
     mat4 project;
     mat4 view;
     mat4 model;
