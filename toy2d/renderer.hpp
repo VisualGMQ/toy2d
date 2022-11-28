@@ -38,6 +38,8 @@ private:
     Mat4 viewMat_;
     std::vector<std::unique_ptr<Buffer>> uniformBuffers_;
     std::vector<std::unique_ptr<Buffer>> colorBuffers_;
+    std::vector<std::unique_ptr<Buffer>> deviceUniformBuffers_;
+    std::vector<std::unique_ptr<Buffer>> deviceColorBuffers_;
     vk::DescriptorPool descriptorPool_;
     std::vector<vk::DescriptorSet> descriptorSets_;
 
