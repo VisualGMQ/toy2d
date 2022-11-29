@@ -21,7 +21,8 @@ Renderer::Renderer(int maxFlightCount): maxFlightCount_(maxFlightCount), curFram
 
 Renderer::~Renderer() {
     auto& device = Context::Instance().device;
-    device.destroyDescriptorPool(descriptorPool_);
+    device.destroyDescriptorPool(descriptorPool1_);
+    device.destroyDescriptorPool(descriptorPool2_);
     verticesBuffer_.reset();
     indicesBuffer_.reset();
     uniformBuffers_.clear();
@@ -78,7 +79,10 @@ void Renderer::DrawRect(const Rect& rect) {
 
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
                            Context::Instance().renderProcess->layout,
-                           0, descriptorSets_[curFrame_], {});
+                           0, descriptorSets_.first[curFrame_], {});
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+                           Context::Instance().renderProcess->layout,
+                           1, descriptorSets_.second[curFrame_], {});
     cmd.drawIndexed(6, 1, 0, 0, 0);
     cmd.endRenderPass();
     cmd.end();
@@ -279,23 +283,25 @@ void Renderer::createDescriptorPool(int flightCount) {
     std::vector<vk::DescriptorPoolSize> sizes(2, size);
     createInfo.setPoolSizes(sizes)
 			  .setMaxSets(flightCount);
-    descriptorPool_ = Context::Instance().device.createDescriptorPool(createInfo);
-}
-
-std::vector<vk::DescriptorSet> Renderer::allocDescriptorSet(int flightCount) {
-    std::vector layouts(flightCount, Context::Instance().shader->GetDescriptorSetLayouts()[0]);
-    vk::DescriptorSetAllocateInfo allocInfo;
-    allocInfo.setDescriptorPool(descriptorPool_)
-			 .setSetLayouts(layouts);
-    return Context::Instance().device.allocateDescriptorSets(allocInfo);
+    descriptorPool1_ = Context::Instance().device.createDescriptorPool(createInfo);
+    descriptorPool2_ = Context::Instance().device.createDescriptorPool(createInfo);
 }
 
 void Renderer::allocDescriptorSets(int flightCount) {
-    descriptorSets_ = allocDescriptorSet(flightCount);
+    std::vector layouts(flightCount, Context::Instance().shader->GetDescriptorSetLayouts()[0]);
+    vk::DescriptorSetAllocateInfo allocInfo;
+    allocInfo.setDescriptorPool(descriptorPool1_)
+			 .setSetLayouts(layouts);
+    descriptorSets_.first = Context::Instance().device.allocateDescriptorSets(allocInfo);
+
+    layouts = std::vector(flightCount, Context::Instance().shader->GetDescriptorSetLayouts()[1]);
+    allocInfo.setDescriptorPool(descriptorPool2_)
+			 .setSetLayouts(layouts);
+    descriptorSets_.second = Context::Instance().device.allocateDescriptorSets(allocInfo);
 }
 
 void Renderer::updateDescriptorSets() {
-    for (int i = 0; i < descriptorSets_.size(); i++) {
+    for (int i = 0; i < descriptorSets_.first.size(); i++) {
         // bind MVP buffer
         vk::DescriptorBufferInfo bufferInfo1;
         bufferInfo1.setBuffer(deviceUniformBuffers_[i]->buffer)
@@ -308,7 +314,7 @@ void Renderer::updateDescriptorSets() {
                      .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                      .setDescriptorCount(1)
                      .setDstArrayElement(0)
-                     .setDstSet(descriptorSets_[i]);
+                     .setDstSet(descriptorSets_.first[i]);
 
         // bind Color buffer
         vk::DescriptorBufferInfo bufferInfo2;
@@ -317,11 +323,11 @@ void Renderer::updateDescriptorSets() {
             .setRange(sizeof(float) * 3);
 
         writeInfos[1].setBufferInfo(bufferInfo2)
-                     .setDstBinding(1)
+                     .setDstBinding(0)
                      .setDstArrayElement(0)
                      .setDescriptorCount(1)
                      .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-                     .setDstSet(descriptorSets_[i]);
+                     .setDstSet(descriptorSets_.second[i]);
 
         Context::Instance().device.updateDescriptorSets(writeInfos, {});
     }

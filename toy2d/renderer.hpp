@@ -7,6 +7,7 @@
 #include "toy2d/math.hpp"
 #include "toy2d/buffer.hpp"
 #include <limits>
+#include <utility>
 
 namespace toy2d {
 
@@ -40,8 +41,9 @@ private:
     std::vector<std::unique_ptr<Buffer>> colorBuffers_;
     std::vector<std::unique_ptr<Buffer>> deviceUniformBuffers_;
     std::vector<std::unique_ptr<Buffer>> deviceColorBuffers_;
-    vk::DescriptorPool descriptorPool_;
-    std::vector<vk::DescriptorSet> descriptorSets_;
+    vk::DescriptorPool descriptorPool1_;
+    vk::DescriptorPool descriptorPool2_;
+    std::pair<std::vector<vk::DescriptorSet>, std::vector<vk::DescriptorSet>> descriptorSets_;
 
     void createFences();
     void createSemaphores();
@@ -54,7 +56,6 @@ private:
     void bufferMVPData(const Mat4& model);
     void initMats();
     void createDescriptorPool(int flightCount);
-    std::vector<vk::DescriptorSet> allocDescriptorSet(int flightCount);
     void allocDescriptorSets(int flightCount);
     void updateDescriptorSets();
     void transformBuffer2Device(Buffer& src, Buffer& dst, size_t srcOffset, size_t dstOffset, size_t size);

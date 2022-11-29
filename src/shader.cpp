@@ -19,17 +19,19 @@ Shader::Shader(const std::vector<char>& vertexSource, const std::vector<char>& f
 
 void Shader::initDescriptorSetLayouts() {
     vk::DescriptorSetLayoutCreateInfo createInfo;
-    std::vector<vk::DescriptorSetLayoutBinding> bindings(2);
-    bindings[0].setBinding(0)
-               .setDescriptorCount(1)
-               .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-               .setStageFlags(vk::ShaderStageFlagBits::eAll);
-    bindings[1].setBinding(1)
-               .setDescriptorCount(1)
-               .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-               .setStageFlags(vk::ShaderStageFlagBits::eAll);
-    createInfo.setBindings(bindings);
+    vk::DescriptorSetLayoutBinding binding;
+    binding.setBinding(0)
+           .setDescriptorCount(1)
+           .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+           .setStageFlags(vk::ShaderStageFlagBits::eVertex);
+    createInfo.setBindings(binding);
+    layouts_.push_back(Context::Instance().device.createDescriptorSetLayout(createInfo));
 
+    binding.setBinding(0)
+           .setDescriptorCount(1)
+           .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+           .setStageFlags(vk::ShaderStageFlagBits::eFragment);
+    createInfo.setBindings(binding);
     layouts_.push_back(Context::Instance().device.createDescriptorSetLayout(createInfo));
 }
 
