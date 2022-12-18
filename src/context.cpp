@@ -27,20 +27,19 @@ Context::Context(const std::vector<const char*>& extensions) {
 }
 
 vk::Instance Context::createInstance(const std::vector<const char*>& extensions) {
-    std::vector layers{"VK_LAYER_KHRONOS_validation"};
-    if (!checkExtensionsAndLayers(extensions, layers)) {
-        throw std::runtime_error("has no supported extension or layer");
-    }
+    std::vector<const char*> layers = {"VK_LAYER_KHRONOS_validation"};
 
     vk::InstanceCreateInfo createInfo;
     vk::ApplicationInfo appInfo;
-    appInfo.setApiVersion(VK_API_VERSION_1_3);
+    appInfo.setApiVersion(VK_VERSION_1_3);
+    createInfo.setPApplicationInfo(&appInfo)
+              .setPEnabledExtensionNames(extensions)
+              .setPEnabledLayerNames(layers);
 
-    createInfo.setPApplicationInfo(&appInfo);
-    createInfo.setPEnabledExtensionNames(extensions);
+    auto exts = vk::enumerateInstanceExtensionProperties();
 
-    createInfo.setPEnabledLayerNames(layers);
-
+    checkExtensionsAndLayers(extensions, layers);
+        
     return vk::createInstance(createInfo);
 }
 
