@@ -33,6 +33,9 @@ Swapchain::Swapchain(int w, int h) {
 }
 
 Swapchain::~Swapchain() {
+    for (auto& view : imageViews) {
+        Context::GetInstance().device.destroyImageView(view);
+    }
     Context::GetInstance().device.destroySwapchainKHR(swapchain);
 }
 
@@ -64,6 +67,31 @@ void Swapchain::queryInfo(int w, int h) {
             info.present = present;
             break;
         }
+    }
+}
+
+void Swapchain::getImages() {
+    images = Context::GetInstance().device.getSwapchainImagesKHR(swapchain);
+}
+
+void Swapchain::createImageViews() {
+    imageViews.resize(images.size());
+
+    for (int i = 0; i < images.size(); i++) {
+        vk::ImageViewCreateInfo createInfo;
+        vk::ComponentMapping mapping;
+        vk::ImageSubresourceRange range;
+        range.setBaseMipLevel(0)
+             .setLevelCount(1)
+             .setBaseArrayLayer(0)
+             .setLayerCount(1)
+             .setAspectMask(vk::ImageAspectFlagBits::eColor);
+        createInfo.setImage(images[i])
+                  .setViewType(vk::ImageViewType::e2D)
+                  .setComponents(mapping)
+                  .setFormat(info.format.format)
+                  .setSubresourceRange(range);
+        imageViews[i] = Context::GetInstance().device.createImageView(createInfo);
     }
 }
 
