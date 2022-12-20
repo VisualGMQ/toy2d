@@ -11,7 +11,11 @@ void RemoveNosupportedElems(std::vector<T>& elems, const std::vector<U>& support
                             std::function<bool(const T&, const U&)> eq) {
     int i = 0;
     while (i < elems.size()) {
-        if (std::find_if(supportedElems.begin(), supportedElems.end(), elems[i], eq) == supportedElems.end()) {
+        if (std::find_if(supportedElems.begin(), supportedElems.end(), 
+                         [&](const U& e) {
+                            return eq(elems[i], e);
+                         })
+            == supportedElems.end()) {
             elems.erase(elems.begin() + i);
         } else {
             i ++;
