@@ -5,31 +5,34 @@ namespace toy2d {
 
 std::unique_ptr<Context> Context::instance_ = nullptr;
 
-void Context::Init() {
-    instance_.reset(new Context);
+void Context::Init(const std::vector<const char*>& extensions, CreateSurfaceFunc func) {
+    instance_.reset(new Context(extensions, func));
 }
 
 void Context::Quit() {
     instance_.reset();
 }
 
-Context::Context() {
-    createInstance();
+Context::Context(const std::vector<const char*>& extensions, CreateSurfaceFunc func) {
+    createInstance(extensions);
     pickupPhyiscalDevice();
+    surface = func(instance);
     queryQueueFamilyIndices();
     createDevice();
     getQueues();
 }
 
 Context::~Context() {
+    instance.destroySurfaceKHR(surface);
     device.destroy();
     instance.destroy(); 
 }
 
-void Context::createInstance() {
+void Context::createInstance(const std::vector<const char*>& extensions) {
     vk::InstanceCreateInfo createInfo;
     vk::ApplicationInfo appInfo;
-    appInfo.setApiVersion(VK_VERSION_1_3);
+    appInfo.setApiVersion(VK_API_VERSION_1_3);
+
     createInfo.setPApplicationInfo(&appInfo);
     instance = vk::createInstance(createInfo);
 
@@ -39,7 +42,8 @@ void Context::createInstance() {
                            [](const char* e1, const vk::LayerProperties& e2) {
                                 return std::strcmp(e1, e2.layerName) == 0;
                            });
-    createInfo.setPEnabledLayerNames(layers);
+    createInfo.setPEnabledLayerNames(layers)
+              .setPEnabledExtensionNames(extensions);
 
     instance = vk::createInstance(createInfo);
 }
@@ -52,13 +56,29 @@ void Context::pickupPhyiscalDevice() {
 }
 
 void Context::createDevice() {
+    std::array extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
     vk::DeviceCreateInfo createInfo;
-    vk::DeviceQueueCreateInfo queueCreateInfo;
+    std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
     float priorities = 1.0;
-    queueCreateInfo.setPQueuePriorities(&priorities)
-                   .setQueueCount(1)
-                   .setQueueFamilyIndex(queueFamilyIndices.graphicsQueue.value());
-    createInfo.setQueueCreateInfos(queueCreateInfo);
+    if (queueFamilyIndices.presentQueue.value() == queueFamilyIndices.graphicsQueue.value()) {
+        vk::DeviceQueueCreateInfo queueCreateInfo;
+        queueCreateInfo.setPQueuePriorities(&priorities)
+                       .setQueueCount(1)
+                       .setQueueFamilyIndex(queueFamilyIndices.graphicsQueue.value());
+        queueCreateInfos.push_back(std::move(queueCreateInfo));
+    } else {
+        vk::DeviceQueueCreateInfo queueCreateInfo;
+        queueCreateInfo.setPQueuePriorities(&priorities)
+                       .setQueueCount(1)
+                       .setQueueFamilyIndex(queueFamilyIndices.graphicsQueue.value());
+        queueCreateInfos.push_back(queueCreateInfo);
+        queueCreateInfo.setPQueuePriorities(&priorities)
+                       .setQueueCount(1)
+                       .setQueueFamilyIndex(queueFamilyIndices.presentQueue.value());
+        queueCreateInfos.push_back(queueCreateInfo);
+    }
+    createInfo.setQueueCreateInfos(queueCreateInfos)
+              .setPEnabledExtensionNames(extensions);
 
     device = phyDevice.createDevice(createInfo);
 }
@@ -69,6 +89,12 @@ void Context::queryQueueFamilyIndices() {
         const auto& property = properties[i];
         if (property.queueFlags | vk::QueueFlagBits::eGraphics) {
             queueFamilyIndices.graphicsQueue = i;
+        }
+        if (phyDevice.getSurfaceSupportKHR(i, surface)) {
+            queueFamilyIndices.presentQueue = i;
+        }
+
+        if (queueFamilyIndices) {
             break;
         }
     }
@@ -76,6 +102,7 @@ void Context::queryQueueFamilyIndices() {
 
 void Context::getQueues() {
     graphcisQueue = device.getQueue(queueFamilyIndices.graphicsQueue.value(), 0);
+    presentQueue = device.getQueue(queueFamilyIndices.presentQueue.value(), 0);
 }
 
 }
