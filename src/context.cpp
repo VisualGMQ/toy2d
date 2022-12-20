@@ -1,66 +1,38 @@
 #include "toy2d/context.hpp"
+#include <vector>
 
 namespace toy2d {
 
 std::unique_ptr<Context> Context::instance_ = nullptr;
 
-void Context::Init(const std::vector<const char*>& extensions) {
-    instance_.reset(new Context(extensions));
+void Context::Init() {
+    instance_.reset(new Context);
 }
 
 void Context::Quit() {
     instance_.reset();
 }
 
-Context& Context::GetInstance() {
-    if (!instance_) {
-        throw std::runtime_error("Vulkan context create failed!");
-    }
-    return *instance_;
-}
-
-Context::Context(const std::vector<const char*>& extensions) {
-    instance = createInstance(extensions);
-    if (!instance) {
-        throw std::runtime_error("instance create failed!");
-    }
-}
-
-vk::Instance Context::createInstance(const std::vector<const char*>& extensions) {
-    std::vector<const char*> layers = {"VK_LAYER_KHRONOS_validation"};
-
+Context::Context() {
     vk::InstanceCreateInfo createInfo;
     vk::ApplicationInfo appInfo;
     appInfo.setApiVersion(VK_VERSION_1_3);
-    createInfo.setPApplicationInfo(&appInfo)
-              .setPEnabledExtensionNames(extensions)
-              .setPEnabledLayerNames(layers);
+    createInfo.setPApplicationInfo(&appInfo);
+    instance = vk::createInstance(createInfo);
 
-    auto exts = vk::enumerateInstanceExtensionProperties();
+    std::vector<const char*> layers = {"VK_LAYER_KHRONOS_validation"};
 
-    checkExtensionsAndLayers(extensions, layers);
-        
-    return vk::createInstance(createInfo);
-}
+    RemoveNosupportedElems<const char*, vk::LayerProperties>(layers, vk::enumerateInstanceLayerProperties(),
+                           [](const char* e1, const vk::LayerProperties& e2) {
+                                return std::strcmp(e1, e2.layerName) == 0;
+                           });
+    createInfo.setPEnabledLayerNames(layers);
 
-bool Context::checkExtensionsAndLayers(const std::vector<const char*>& extensions, const std::vector<const char*>& layers) {
-    using LiteralStr = const char*;
-    return checkElemsInList<LiteralStr, vk::ExtensionProperties>(
-            extensions, vk::enumerateInstanceExtensionProperties(),
-            [](const LiteralStr& elem1, const vk::ExtensionProperties& elem2) {
-                return std::strcmp(elem1, elem2.extensionName) == 0;
-            }) &&
-        checkElemsInList<LiteralStr, vk::LayerProperties>(
-                layers, vk::enumerateInstanceLayerProperties(), 
-                [](const LiteralStr& elem1, const vk::LayerProperties& elem2) {
-                return std::strcmp(elem1, elem2.layerName) == 0;
-            });
-
-
+    instance = vk::createInstance(createInfo);
 }
 
 Context::~Context() {
-    instance.destroy();
+    instance.destroy(); 
 }
 
 }
