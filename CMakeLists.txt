@@ -9,6 +9,11 @@ include(cmake/FindVulkan.cmake)
 include(cmake/FindSDL2.cmake)
 include(cmake/copydll.cmake)
 
+find_program(GLSLC_PROGRAM glslc REQUIRED)
+execute_process(COMMAND ${GLSLC_PROGRAM} ${CMAKE_SOURCE_DIR}/shader/shader.vert -o ${CMAKE_SOURCE_DIR}/vert.spv)
+execute_process(COMMAND ${GLSLC_PROGRAM} ${CMAKE_SOURCE_DIR}/shader/shader.frag -o ${CMAKE_SOURCE_DIR}/frag.spv)
+
+
 aux_source_directory(src SRC)
 
 add_library(toy2d STATIC ${SRC})

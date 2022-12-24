@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <vector>
 #include <functional>
+#include <fstream>
+#include <iostream>
 #include "vulkan/vulkan.hpp"
 
 using CreateSurfaceFunc = std::function<vk::SurfaceKHR(vk::Instance)>;
@@ -25,5 +27,7 @@ void RemoveNosupportedElems(std::vector<T>& elems, const std::vector<U>& support
         }
     }
 }
+
+std::string ReadWholeFile(const std::string& filename);
 
 }
