@@ -20,6 +20,7 @@ Context::Context(const std::vector<const char*>& extensions, CreateSurfaceFunc f
     queryQueueFamilyIndices();
     createDevice();
     getQueues();
+    renderProcess.reset(new RenderProcess);
 }
 
 Context::~Context() {
