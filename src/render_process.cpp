@@ -1,6 +1,7 @@
 #include "toy2d/render_process.hpp"
 #include "toy2d/shader.hpp"
 #include "toy2d/context.hpp"
+#include "toy2d/swapchain.hpp"
 
 namespace toy2d {
 
@@ -59,6 +60,10 @@ void RenderProcess::InitPipeline(int width, int height) {
          .setAttachments(attachs);
     createInfo.setPColorBlendState(&blend);
 
+    // 9. renderPass and layout
+    createInfo.setRenderPass(renderPass)
+              .setLayout(layout);
+
     auto result = Context::GetInstance().device.createGraphicsPipeline(nullptr, createInfo);
     if (result.result != vk::Result::eSuccess) {
         throw std::runtime_error("create graphics pipeline failed");
@@ -66,8 +71,48 @@ void RenderProcess::InitPipeline(int width, int height) {
     pipeline = result.value;
 }
 
-void RenderProcess::DestroyPipeline() {
-    Context::GetInstance().device.destroyPipeline(pipeline);
+void RenderProcess::InitLayout() {
+    vk::PipelineLayoutCreateInfo createInfo;
+    layout = Context::GetInstance().device.createPipelineLayout(createInfo);
+}
+
+void RenderProcess::InitRenderPass() {
+    vk::RenderPassCreateInfo createInfo;
+    vk::AttachmentDescription attachDesc;
+    attachDesc.setFormat(Context::GetInstance().swapchain->info.format.format)
+              .setInitialLayout(vk::ImageLayout::eUndefined)
+              .setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal)
+              .setLoadOp(vk::AttachmentLoadOp::eClear)
+              .setStoreOp(vk::AttachmentStoreOp::eStore)
+              .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+              .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+              .setSamples(vk::SampleCountFlagBits::e1);
+    createInfo.setAttachments(attachDesc);
+
+    vk::AttachmentReference reference;
+    reference.setLayout(vk::ImageLayout::eColorAttachmentOptimal)
+             .setAttachment(0);
+    vk::SubpassDescription subpass;
+    subpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+           .setColorAttachments(reference);
+    createInfo.setSubpasses(subpass);
+
+    vk::SubpassDependency dependency;
+    dependency.setSrcSubpass(VK_SUBPASS_EXTERNAL)
+              .setDstSubpass(0)
+              .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+              .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+              .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
+    createInfo.setDependencies(dependency);
+
+    renderPass = Context::GetInstance().device.createRenderPass(createInfo);
+}
+
+RenderProcess::~RenderProcess() {
+    auto& device = Context::GetInstance().device;
+    device.destroyRenderPass(renderPass);
+    device.destroyPipelineLayout(layout);
+    device.destroyPipeline(pipeline);
 }
 
 }

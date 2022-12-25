@@ -6,11 +6,13 @@ void Init(const std::vector<const char*>& extensions, CreateSurfaceFunc func, in
     Context::Init(extensions, func);
     Context::GetInstance().InitSwapchain(w, h);
     Shader::Init(ReadWholeFile("./vert.spv"), ReadWholeFile("./frag.spv"));
+    Context::GetInstance().renderProcess->InitRenderPass();
+    Context::GetInstance().renderProcess->InitLayout();
     Context::GetInstance().renderProcess->InitPipeline(w, h);
 }
 
 void Quit() {
-    Context::GetInstance().renderProcess->DestroyPipeline();
+    Context::GetInstance().renderProcess.reset();
     Context::GetInstance().DestroySwapchain();
     Shader::Quit();
     Context::Quit();
