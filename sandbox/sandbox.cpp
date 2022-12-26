@@ -39,7 +39,6 @@ int main(int argc, char** argv) {
         }
         renderer->DrawTriangle();
     }
-    toy2d::Context::Instance().device.waitIdle();
     toy2d::Quit();
 
     SDL_DestroyWindow(window);
