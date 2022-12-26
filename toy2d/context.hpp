@@ -8,6 +8,7 @@
 #include "tool.hpp"
 #include "swapchain.hpp"
 #include "render_process.hpp"
+#include "renderer.hpp"
 
 namespace toy2d {
 
@@ -40,6 +41,7 @@ public:
     vk::SurfaceKHR surface;
     std::unique_ptr<Swapchain> swapchain;
     std::unique_ptr<RenderProcess> renderProcess;
+    std::unique_ptr<Renderer> renderer;
     QueueFamliyIndices queueFamilyIndices;
 
     void InitSwapchain(int w, int h) {
@@ -48,6 +50,10 @@ public:
 
     void DestroySwapchain() {
         swapchain.reset();
+    }
+
+    void InitRenderer() {
+        renderer.reset(new Renderer);
     }
 
 private:

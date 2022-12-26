@@ -33,12 +33,15 @@ int main(int argc, char** argv) {
                     return surface;
                 }, 1024, 720);
 
+    auto& renderer = toy2d::GetRenderer();
+
     while (!shouldClose) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
                 shouldClose = true;
             }
         }
+        renderer.Render();
     }
 
     toy2d::Quit();

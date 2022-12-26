@@ -30,9 +30,15 @@ Swapchain::Swapchain(int w, int h) {
     }
 
     swapchain = Context::GetInstance().device.createSwapchainKHR(createInfo);
+
+    getImages();
+    createImageViews();
 }
 
 Swapchain::~Swapchain() {
+    for (auto& framebuffer : framebuffers) {
+        Context::GetInstance().device.destroyFramebuffer(framebuffer);
+    }
     for (auto& view : imageViews) {
         Context::GetInstance().device.destroyImageView(view);
     }
@@ -92,6 +98,19 @@ void Swapchain::createImageViews() {
                   .setFormat(info.format.format)
                   .setSubresourceRange(range);
         imageViews[i] = Context::GetInstance().device.createImageView(createInfo);
+    }
+}
+
+void Swapchain::CreateFramebuffers(int w, int h) {
+    framebuffers.resize(images.size());
+    for (int i = 0; i < framebuffers.size(); i++) {
+        vk::FramebufferCreateInfo createInfo;
+        createInfo.setAttachments(imageViews[i])
+                  .setWidth(w)
+                  .setHeight(h)
+                  .setRenderPass(Context::GetInstance().renderProcess->renderPass)
+                  .setLayers(1);
+        framebuffers[i] = Context::GetInstance().device.createFramebuffer(createInfo);
     }
 }
 

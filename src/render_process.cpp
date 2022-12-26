@@ -34,7 +34,7 @@ void RenderProcess::InitPipeline(int width, int height) {
     vk::PipelineRasterizationStateCreateInfo rastInfo;
     rastInfo.setRasterizerDiscardEnable(false)
             .setCullMode(vk::CullModeFlagBits::eBack)
-            .setFrontFace(vk::FrontFace::eCounterClockwise)
+            .setFrontFace(vk::FrontFace::eClockwise)
             .setPolygonMode(vk::PolygonMode::eFill)
             .setLineWidth(1);
     createInfo.setPRasterizationState(&rastInfo);
@@ -81,7 +81,7 @@ void RenderProcess::InitRenderPass() {
     vk::AttachmentDescription attachDesc;
     attachDesc.setFormat(Context::GetInstance().swapchain->info.format.format)
               .setInitialLayout(vk::ImageLayout::eUndefined)
-              .setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal)
+              .setFinalLayout(vk::ImageLayout::ePresentSrcKHR)
               .setLoadOp(vk::AttachmentLoadOp::eClear)
               .setStoreOp(vk::AttachmentStoreOp::eStore)
               .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
