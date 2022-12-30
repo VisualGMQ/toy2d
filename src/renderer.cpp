@@ -2,13 +2,23 @@
 
 namespace toy2d {
 
+const std::array<Vertex, 3> vertices = {
+    Vertex{0.0, -0.5},
+    Vertex{0.5, 0.5},
+    Vertex{-0.5, 0.5},
+};
+
 Renderer::Renderer(int maxFlightCount): maxFlightCount_(maxFlightCount), curFrame_(0) {
     createFences();
     createSemaphores();
     createCmdBuffers();
+    createVertexBuffer();
+    bufferVertexData();
 }
 
 Renderer::~Renderer() {
+    hostVertexBuffer_.reset();
+    deviceVertexBuffer_.reset();
     auto& device = Context::Instance().device;
     for (auto& sem : imageAvaliableSems_) {
         device.destroySemaphore(sem);
@@ -51,6 +61,8 @@ void Renderer::DrawTriangle() {
                    .setRenderArea(vk::Rect2D({}, swapchain->GetExtent()));
     cmdBufs_[curFrame_].beginRenderPass(&renderPassBegin, vk::SubpassContents::eInline);
     cmdBufs_[curFrame_].bindPipeline(vk::PipelineBindPoint::eGraphics, ctx.renderProcess->graphicsPipeline);
+    vk::DeviceSize offset = 0;
+    cmdBufs_[curFrame_].bindVertexBuffers(0, deviceVertexBuffer_->buffer, offset);
     cmdBufs_[curFrame_].draw(3, 1, 0, 0);
     cmdBufs_[curFrame_].endRenderPass();
     cmdBufs_[curFrame_].end();
@@ -106,6 +118,41 @@ void Renderer::createCmdBuffers() {
     for (auto& cmd : cmdBufs_) {
         cmd = Context::Instance().commandManager->CreateOneCommandBuffer();
     }
+}
+
+void Renderer::createVertexBuffer() {
+    hostVertexBuffer_.reset(new Buffer(sizeof(vertices),
+                                       vk::BufferUsageFlagBits::eTransferSrc,
+                                       vk::MemoryPropertyFlagBits::eHostVisible|vk::MemoryPropertyFlagBits::eHostCoherent));
+    deviceVertexBuffer_.reset(new Buffer(sizeof(vertices),
+                                         vk::BufferUsageFlagBits::eVertexBuffer|vk::BufferUsageFlagBits::eTransferDst,
+                                         vk::MemoryPropertyFlagBits::eDeviceLocal));
+}
+
+void Renderer::bufferVertexData() {
+    void* ptr = Context::Instance().device.mapMemory(hostVertexBuffer_->memory, 0, hostVertexBuffer_->size);
+        memcpy(ptr, vertices.data(), sizeof(vertices));
+    Context::Instance().device.unmapMemory(hostVertexBuffer_->memory);
+
+    auto cmdBuf = Context::Instance().commandManager->CreateOneCommandBuffer();
+
+    vk::CommandBufferBeginInfo begin;
+    begin.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+    cmdBuf.begin(begin); {
+        vk::BufferCopy region;
+        region.setSize(hostVertexBuffer_->size)
+              .setSrcOffset(0)
+              .setDstOffset(0);
+        cmdBuf.copyBuffer(hostVertexBuffer_->buffer, deviceVertexBuffer_->buffer, region);
+    } cmdBuf.end();
+
+    vk::SubmitInfo submit;
+    submit.setCommandBuffers(cmdBuf);
+    Context::Instance().graphicsQueue.submit(submit);
+
+    Context::Instance().device.waitIdle();
+
+    Context::Instance().commandManager->FreeCmd(cmdBuf);
 }
 
 }

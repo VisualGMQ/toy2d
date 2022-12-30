@@ -4,6 +4,8 @@
 #include "toy2d/context.hpp"
 #include "toy2d/command_manager.hpp"
 #include "toy2d/swapchain.hpp"
+#include "toy2d/vertex.hpp"
+#include "toy2d/buffer.hpp"
 #include <limits>
 
 namespace toy2d {
@@ -23,9 +25,14 @@ private:
     std::vector<vk::Semaphore> renderFinishSems_;
     std::vector<vk::CommandBuffer> cmdBufs_;
 
+    std::unique_ptr<Buffer> hostVertexBuffer_;
+    std::unique_ptr<Buffer> deviceVertexBuffer_;
+
     void createFences();
     void createSemaphores();
     void createCmdBuffers();
+    void createVertexBuffer();
+    void bufferVertexData();
 };
 
 }

@@ -1,6 +1,7 @@
 #include "toy2d/render_process.hpp"
 #include "toy2d/context.hpp"
 #include "toy2d/swapchain.hpp"
+#include "toy2d/vertex.hpp"
 
 namespace toy2d {
 
@@ -64,6 +65,10 @@ vk::Pipeline RenderProcess::createGraphicsPipeline(const std::vector<char>& vert
 
     // 1. vertex input
     vk::PipelineVertexInputStateCreateInfo vertexInputCreateInfo;
+    auto attribute = Vertex::GetAttribute();
+    auto binding = Vertex::GetBinding();
+    vertexInputCreateInfo.setVertexBindingDescriptions(binding)
+                         .setVertexAttributeDescriptions(attribute);
 
     // 2. vertex assembly
     vk::PipelineInputAssemblyStateCreateInfo inputAsmCreateInfo;
