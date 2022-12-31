@@ -35,8 +35,9 @@ void RenderProcess::RecreateRenderPass() {
 
 vk::PipelineLayout RenderProcess::createLayout() {
     vk::PipelineLayoutCreateInfo createInfo;
-    createInfo.setPushConstantRangeCount(0)
-              .setSetLayouts(Context::Instance().shader->GetDescriptorSetLayouts());
+    auto range = Context::Instance().shader->GetPushConstantRange();
+    createInfo.setSetLayouts(Context::Instance().shader->GetDescriptorSetLayouts())
+              .setPushConstantRanges(range);
 
     return Context::Instance().device.createPipelineLayout(createInfo);
 }

@@ -45,9 +45,6 @@ void Renderer::DrawRect(const Rect& rect) {
     }
     device.resetFences(fences_[curFrame_]);
 
-    auto model = Mat4::CreateTranslate(rect.position).Mul(Mat4::CreateScale(rect.size));
-    bufferMVPData(model);
-
     auto& swapchain = ctx.swapchain;
     auto resultValue = device.acquireNextImageKHR(swapchain->swapchain, std::numeric_limits<std::uint64_t>::max(), imageAvaliableSems_[curFrame_], nullptr);
     if (resultValue.result != vk::Result::eSuccess) {
@@ -79,6 +76,8 @@ void Renderer::DrawRect(const Rect& rect) {
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
                            Context::Instance().renderProcess->layout,
                            0, descriptorSets_[curFrame_], {});
+    auto model = Mat4::CreateTranslate(rect.position).Mul(Mat4::CreateScale(rect.size));
+    cmd.pushConstants(Context::Instance().renderProcess->layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Mat4), model.GetData());
     cmd.drawIndexed(6, 1, 0, 0, 0);
     cmd.endRenderPass();
     cmd.end();
@@ -150,8 +149,8 @@ void Renderer::createBuffers() {
 
 void Renderer::createUniformBuffers(int flightCount) {
     uniformBuffers_.resize(flightCount);
-    //            three mat4                  one color
-    size_t size = sizeof(float) * 4 * 4 * 3;
+    //            two mat4                  one color
+    size_t size = sizeof(Mat4) * 2;
     for (auto& buffer : uniformBuffers_) {
         buffer.reset(new Buffer(vk::BufferUsageFlagBits::eTransferSrc,
                      size,
@@ -165,7 +164,7 @@ void Renderer::createUniformBuffers(int flightCount) {
     }
 
     colorBuffers_.resize(flightCount);
-    size = sizeof(float) * 3;
+    size = sizeof(Color);
     for (auto& buffer : colorBuffers_) {
         buffer.reset(new Buffer(vk::BufferUsageFlagBits::eTransferSrc,
                      size,
@@ -238,15 +237,16 @@ void Renderer::bufferIndicesData() {
     memcpy(indicesBuffer_->map, indices, sizeof(indices));
 }
 
-void Renderer::bufferMVPData(const Mat4& model) {
-    MVP mvp;
-    mvp.project = projectMat_;
-    mvp.view = viewMat_;
-    mvp.model = model;
+void Renderer::bufferMVPData() {
+    struct Matrices {
+        Mat4 project;
+        Mat4 view;
+    } matrices;
     auto& device = Context::Instance().device;
     for (int i = 0; i < uniformBuffers_.size(); i++) {
         auto& buffer = uniformBuffers_[i];
-        memcpy(buffer->map, (void*)&mvp, sizeof(mvp));
+        memcpy(buffer->map, (void*)&projectMat_, sizeof(Mat4));
+        memcpy(((float*)buffer->map + 4 * 4), (void*)&viewMat_, sizeof(Mat4));
         transformBuffer2Device(*buffer, *deviceUniformBuffers_[i], 0, 0, buffer->size);
     }
 }
@@ -269,6 +269,7 @@ void Renderer::initMats() {
 
 void Renderer::SetProject(int right, int left, int bottom, int top, int far, int near) {
     projectMat_ = Mat4::CreateOrtho(left, right, top, bottom, near, far);
+    bufferMVPData();
 }
 
 void Renderer::createDescriptorPool(int flightCount) {
@@ -300,7 +301,7 @@ void Renderer::updateDescriptorSets() {
         vk::DescriptorBufferInfo bufferInfo1;
         bufferInfo1.setBuffer(deviceUniformBuffers_[i]->buffer)
                    .setOffset(0)
-				   .setRange(sizeof(float) * 4 * 4 * 3);
+				   .setRange(sizeof(Mat4) * 2);
 
         std::vector<vk::WriteDescriptorSet> writeInfos(2);
         writeInfos[0].setBufferInfo(bufferInfo1)
@@ -314,7 +315,7 @@ void Renderer::updateDescriptorSets() {
         vk::DescriptorBufferInfo bufferInfo2;
         bufferInfo2.setBuffer(deviceColorBuffers_[i]->buffer)
             .setOffset(0)
-            .setRange(sizeof(float) * 3);
+            .setRange(sizeof(Color));
 
         writeInfos[1].setBufferInfo(bufferInfo2)
                      .setDstBinding(1)

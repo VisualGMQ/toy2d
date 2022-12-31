@@ -1,5 +1,6 @@
 #include "toy2d/shader.hpp"
 #include "toy2d/context.hpp"
+#include "toy2d/math.hpp"
 
 namespace toy2d {
 
@@ -23,11 +24,11 @@ void Shader::initDescriptorSetLayouts() {
     bindings[0].setBinding(0)
                .setDescriptorCount(1)
                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-               .setStageFlags(vk::ShaderStageFlagBits::eAll);
+               .setStageFlags(vk::ShaderStageFlagBits::eVertex);
     bindings[1].setBinding(1)
                .setDescriptorCount(1)
                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-               .setStageFlags(vk::ShaderStageFlagBits::eAll);
+               .setStageFlags(vk::ShaderStageFlagBits::eFragment);
     createInfo.setBindings(bindings);
 
     layouts_.push_back(Context::Instance().device.createDescriptorSetLayout(createInfo));
@@ -41,6 +42,14 @@ Shader::~Shader() {
     layouts_.clear();
     device.destroyShaderModule(vertexModule_);
     device.destroyShaderModule(fragModule_);
+}
+
+std::vector<vk::PushConstantRange> Shader::GetPushConstantRange() const {
+    vk::PushConstantRange range;
+    range.setOffset(0)
+         .setSize(sizeof(Mat4))
+         .setStageFlags(vk::ShaderStageFlagBits::eVertex);
+    return {range};
 }
 
 }

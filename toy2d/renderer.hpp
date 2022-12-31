@@ -20,12 +20,6 @@ public:
     void SetDrawColor(const Color&);
 
 private:
-    struct MVP {
-        Mat4 project;
-        Mat4 view;
-        Mat4 model;
-    };
-
     int maxFlightCount_;
     int curFrame_;
     std::vector<vk::Fence> fences_;
@@ -51,7 +45,7 @@ private:
     void bufferData();
     void bufferVertexData();
     void bufferIndicesData();
-    void bufferMVPData(const Mat4& model);
+    void bufferMVPData();
     void initMats();
     void createDescriptorPool(int flightCount);
     std::vector<vk::DescriptorSet> allocDescriptorSet(int flightCount);
