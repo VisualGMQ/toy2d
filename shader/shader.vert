@@ -9,7 +9,7 @@ layout(set = 0, binding = 0) uniform UniformBuffer {
 
 layout(push_constant) uniform PushConstant {
     mat4 model;
-}pc;
+} pc;
 
 void main() {
     gl_Position = ubo.project * ubo.view * pc.model * vec4(inPosition, 0.0, 1.0);

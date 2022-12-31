@@ -73,11 +73,12 @@ void Renderer::DrawRect(const Rect& rect) {
     cmd.bindVertexBuffers(0, verticesBuffer_->buffer, offset);
     cmd.bindIndexBuffer(indicesBuffer_->buffer, 0, vk::IndexType::eUint32);
 
+    auto& layout = Context::Instance().renderProcess->layout;
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                           Context::Instance().renderProcess->layout,
+                           layout,
                            0, descriptorSets_[curFrame_], {});
     auto model = Mat4::CreateTranslate(rect.position).Mul(Mat4::CreateScale(rect.size));
-    cmd.pushConstants(Context::Instance().renderProcess->layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Mat4), model.GetData());
+    cmd.pushConstants(layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Mat4), model.GetData());
     cmd.drawIndexed(6, 1, 0, 0, 0);
     cmd.endRenderPass();
     cmd.end();

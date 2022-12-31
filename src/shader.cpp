@@ -44,12 +44,12 @@ Shader::~Shader() {
     device.destroyShaderModule(fragModule_);
 }
 
-std::vector<vk::PushConstantRange> Shader::GetPushConstantRange() const {
+vk::PushConstantRange Shader::GetPushConstantRange() const {
     vk::PushConstantRange range;
     range.setOffset(0)
          .setSize(sizeof(Mat4))
          .setStageFlags(vk::ShaderStageFlagBits::eVertex);
-    return {range};
+    return range;
 }
 
 }
