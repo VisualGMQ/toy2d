@@ -2,20 +2,23 @@
 #include "toy2d/context.hpp"
 #include "toy2d/swapchain.hpp"
 #include "toy2d/vertex.hpp"
+#include "toy2d/uniform.hpp"
 
 namespace toy2d {
 
 RenderProcess::RenderProcess() {
+    setLayout = createSetLayout();
     layout = createLayout();
     renderPass = createRenderPass();
     graphicsPipeline = nullptr;
 }
 
 RenderProcess::~RenderProcess() {
-    auto& ctx = Context::Instance();
-    ctx.device.destroyRenderPass(renderPass);
-    ctx.device.destroyPipelineLayout(layout);
-    ctx.device.destroyPipeline(graphicsPipeline);
+    auto& device = Context::Instance().device;
+    device.destroyDescriptorSetLayout(setLayout);
+    device.destroyRenderPass(renderPass);
+    device.destroyPipelineLayout(layout);
+    device.destroyPipeline(graphicsPipeline);
 }
 
 void RenderProcess::RecreateGraphicsPipeline(const std::vector<char>& vertexSource, const std::vector<char>& fragSource) {
@@ -34,8 +37,7 @@ void RenderProcess::RecreateRenderPass() {
 
 vk::PipelineLayout RenderProcess::createLayout() {
     vk::PipelineLayoutCreateInfo createInfo;
-    createInfo.setPushConstantRangeCount(0)
-              .setSetLayoutCount(0);
+    createInfo.setSetLayouts(setLayout);
 
     return Context::Instance().device.createPipelineLayout(createInfo);
 }
@@ -168,6 +170,14 @@ vk::RenderPass RenderProcess::createRenderPass() {
               .setSubpasses(subpassDesc);
 
     return Context::Instance().device.createRenderPass(createInfo);
+}
+
+vk::DescriptorSetLayout RenderProcess::createSetLayout() {
+    vk::DescriptorSetLayoutCreateInfo createInfo;
+    auto binding = Uniform::GetBinding();
+    createInfo.setBindings(binding);
+
+    return Context::Instance().device.createDescriptorSetLayout(createInfo);
 }
 
 }
