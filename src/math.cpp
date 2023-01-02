@@ -2,22 +2,25 @@
 
 namespace toy2d {
 
-vk::VertexInputAttributeDescription Vec::GetAttributeDescription() {
-    vk::VertexInputAttributeDescription description;
-    description.setBinding(0)
-                .setFormat(vk::Format::eR32G32Sfloat)
-                .setLocation(0)
-                .setOffset(0);
-    return description;
+std::vector<vk::VertexInputAttributeDescription> Vec::GetAttributeDescription() {
+    std::vector<vk::VertexInputAttributeDescription> descriptions(2);
+    descriptions[0].setBinding(0)
+                   .setFormat(vk::Format::eR32G32Sfloat)
+                   .setLocation(0)
+                   .setOffset(0);
+    descriptions[1].setBinding(0)
+                   .setFormat(vk::Format::eR32G32Sfloat)
+                   .setLocation(1)
+                   .setOffset(offsetof(Vertex, texcoord));
+    return descriptions;
 }
 
-vk::VertexInputBindingDescription Vec::GetBindingDescription() {
-    vk::VertexInputBindingDescription description;
-    description.setBinding(0)
-               .setStride(sizeof(float) * 2)
-               .setInputRate(vk::VertexInputRate::eVertex);
-
-    return description;
+std::vector<vk::VertexInputBindingDescription> Vec::GetBindingDescription() {
+    std::vector<vk::VertexInputBindingDescription> descriptions(1);
+    descriptions[0].setBinding(0)
+                   .setStride(sizeof(Vertex))
+                   .setInputRate(vk::VertexInputRate::eVertex);
+    return descriptions;
 }
 
 Mat4 Mat4::Create(const std::initializer_list<float>& initList) {

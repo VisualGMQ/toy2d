@@ -16,9 +16,8 @@ struct Buffer {
 
     Buffer(const Buffer&) = delete;
     Buffer& operator=(const Buffer&) = delete;
-
-private:
-    std::uint32_t queryBufferMemTypeIndex(std::uint32_t requirementBit, vk::MemoryPropertyFlags);
 };
+
+std::uint32_t QueryBufferMemTypeIndex(std::uint32_t requirementBit, vk::MemoryPropertyFlags);
 
 }

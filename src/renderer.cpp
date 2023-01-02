@@ -11,6 +11,8 @@ Renderer::Renderer(int maxFlightCount): maxFlightCount_(maxFlightCount), curFram
     createBuffers();
     createUniformBuffers(maxFlightCount);
     bufferData();
+    createTexture();
+    createSampler();
     createDescriptorPool(maxFlightCount);
     allocDescriptorSets(maxFlightCount);
     updateDescriptorSets();
@@ -21,6 +23,8 @@ Renderer::Renderer(int maxFlightCount): maxFlightCount_(maxFlightCount), curFram
 
 Renderer::~Renderer() {
     auto& device = Context::Instance().device;
+    device.destroySampler(sampler);
+    texture.reset();
     device.destroyDescriptorPool(descriptorPool_);
     verticesBuffer_.reset();
     indicesBuffer_.reset();
@@ -140,11 +144,11 @@ void Renderer::createBuffers() {
     auto& device = Context::Instance().device;
 
     verticesBuffer_.reset(new Buffer(vk::BufferUsageFlagBits::eVertexBuffer,
-                                     sizeof(float) * 8,
+                                     sizeof(Vertex) * 4,
                                      vk::MemoryPropertyFlagBits::eHostVisible|vk::MemoryPropertyFlagBits::eHostCoherent));
 
     indicesBuffer_.reset(new Buffer(vk::BufferUsageFlagBits::eIndexBuffer,
-                                     sizeof(float) * 6,
+                                     sizeof(uint32_t) * 6,
                                      vk::MemoryPropertyFlagBits::eHostVisible|vk::MemoryPropertyFlagBits::eHostCoherent));
 }
 
@@ -181,23 +185,14 @@ void Renderer::createUniformBuffers(int flightCount) {
 }
 
 void Renderer::transformBuffer2Device(Buffer& src, Buffer& dst, size_t srcOffset, size_t dstOffset, size_t size) {
-    auto cmdBuf = Context::Instance().commandManager->CreateOneCommandBuffer();
-    vk::CommandBufferBeginInfo beginInfo;
-    beginInfo.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
-    cmdBuf.begin(beginInfo);
-        vk::BufferCopy region;
-        region.setSrcOffset(srcOffset)
-              .setDstOffset(dstOffset)
-              .setSize(size);
-        cmdBuf.copyBuffer(src.buffer, dst.buffer, region);
-    cmdBuf.end();
-
-    vk::SubmitInfo submitInfo;
-    submitInfo.setCommandBuffers(cmdBuf);
-    Context::Instance().graphicsQueue.submit(submitInfo);
-    Context::Instance().graphicsQueue.waitIdle();
-    Context::Instance().device.waitIdle();
-    Context::Instance().commandManager->FreeCmd(cmdBuf);
+    Context::Instance().commandManager->ExecuteCmd(Context::Instance().graphicsQueue,
+            [&](vk::CommandBuffer& cmdBuf) {
+                vk::BufferCopy region;
+                region.setSrcOffset(srcOffset)
+                      .setDstOffset(dstOffset)
+                      .setSize(size);
+                cmdBuf.copyBuffer(src.buffer, dst.buffer, region);
+            });
 }
 
 std::uint32_t Renderer::queryBufferMemTypeIndex(std::uint32_t type, vk::MemoryPropertyFlags flag) {
@@ -219,11 +214,11 @@ void Renderer::bufferData() {
 }
 
 void Renderer::bufferVertexData() {
-    Vec vertices[] = {
-        Vec{{-0.5, -0.5}},
-        Vec{{0.5, -0.5}},
-        Vec{{0.5, 0.5}},
-        Vec{{-0.5, 0.5}},
+    Vertex vertices[] = {
+        {Vec{-0.5, -0.5},Vec{0, 0}},
+        {Vec{0.5, -0.5} ,Vec{1, 0}},
+        {Vec{0.5, 0.5}  ,Vec{1, 1}},
+        {Vec{-0.5, 0.5} ,Vec{0, 1}},
     };
     auto& device = Context::Instance().device;
     memcpy(verticesBuffer_->map, vertices, sizeof(vertices));
@@ -275,10 +270,11 @@ void Renderer::SetProject(int right, int left, int bottom, int top, int far, int
 
 void Renderer::createDescriptorPool(int flightCount) {
     vk::DescriptorPoolCreateInfo createInfo;
-    vk::DescriptorPoolSize size;
-    size.setDescriptorCount(flightCount)
-        .setType(vk::DescriptorType::eUniformBuffer);
-    std::vector<vk::DescriptorPoolSize> sizes(2, size);
+    std::vector<vk::DescriptorPoolSize> sizes(2);
+    sizes[0].setDescriptorCount(flightCount * 2)
+            .setType(vk::DescriptorType::eUniformBuffer);
+    sizes[1].setDescriptorCount(flightCount)
+            .setType(vk::DescriptorType::eCombinedImageSampler);
     createInfo.setPoolSizes(sizes)
 			  .setMaxSets(flightCount);
     descriptorPool_ = Context::Instance().device.createDescriptorPool(createInfo);
@@ -304,7 +300,7 @@ void Renderer::updateDescriptorSets() {
                    .setOffset(0)
 				   .setRange(sizeof(Mat4) * 2);
 
-        std::vector<vk::WriteDescriptorSet> writeInfos(2);
+        std::vector<vk::WriteDescriptorSet> writeInfos(3);
         writeInfos[0].setBufferInfo(bufferInfo1)
                      .setDstBinding(0)
                      .setDescriptorType(vk::DescriptorType::eUniformBuffer)
@@ -325,8 +321,40 @@ void Renderer::updateDescriptorSets() {
                      .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                      .setDstSet(descriptorSets_[i]);
 
+        // bind image
+        vk::DescriptorImageInfo imageInfo;
+        imageInfo.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                 .setImageView(texture->view)
+                 .setSampler(sampler);
+
+        writeInfos[2].setImageInfo(imageInfo)
+                     .setDstBinding(2)
+                     .setDstArrayElement(0)
+                     .setDescriptorCount(1)
+                     .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                     .setDstSet(descriptorSets_[i]);
+
         Context::Instance().device.updateDescriptorSets(writeInfos, {});
     }
+}
+
+void Renderer::createSampler() {
+    vk::SamplerCreateInfo createInfo;
+    createInfo.setMagFilter(vk::Filter::eLinear)
+              .setMinFilter(vk::Filter::eLinear)
+              .setAddressModeU(vk::SamplerAddressMode::eRepeat)
+              .setAddressModeV(vk::SamplerAddressMode::eRepeat)
+              .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+              .setAnisotropyEnable(false)
+              .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+              .setUnnormalizedCoordinates(false)
+              .setCompareEnable(false)
+              .setMipmapMode(vk::SamplerMipmapMode::eLinear);
+    sampler = Context::Instance().device.createSampler(createInfo);
+}
+
+void Renderer::createTexture() {
+    texture.reset(new Texture("resources/texture.jpg"));
 }
 
 }

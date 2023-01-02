@@ -15,7 +15,7 @@ Buffer::Buffer(vk::BufferUsageFlags usage, size_t size, vk::MemoryPropertyFlags 
 
     auto requirements = device.getBufferMemoryRequirements(buffer);
     requireSize = requirements.size;
-    auto index = queryBufferMemTypeIndex(requirements.memoryTypeBits, memProperty);
+    auto index = QueryBufferMemTypeIndex(requirements.memoryTypeBits, memProperty);
     vk::MemoryAllocateInfo allocInfo;
     allocInfo.setMemoryTypeIndex(index)
              .setAllocationSize(requirements.size);
@@ -39,7 +39,7 @@ Buffer::~Buffer() {
     device.destroyBuffer(buffer);
 }
 
-std::uint32_t Buffer::queryBufferMemTypeIndex(std::uint32_t type, vk::MemoryPropertyFlags flag) {
+std::uint32_t QueryBufferMemTypeIndex(std::uint32_t type, vk::MemoryPropertyFlags flag) {
     auto property = Context::Instance().phyDevice.getMemoryProperties();
 
     for (std::uint32_t i = 0; i < property.memoryTypeCount; i++) {

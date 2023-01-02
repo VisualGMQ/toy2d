@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
 
     float x = 100, y = 100;
 
-    renderer->SetDrawColor(toy2d::Color{0, 1, 0});
+    renderer->SetDrawColor(toy2d::Color{1, 1, 1});
     while (!shouldClose) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
@@ -52,15 +52,15 @@ int main(int argc, char** argv) {
                 if (event.key.keysym.sym == SDLK_s) {
                     y += 10;
                 }
-                if (event.key.keysym.sym == SDLK_0) {
-                    renderer->SetDrawColor(toy2d::Color{1, 0, 0});
-                }
-                if (event.key.keysym.sym == SDLK_1) {
-                    renderer->SetDrawColor(toy2d::Color{0, 1, 0});
-                }
-                if (event.key.keysym.sym == SDLK_2) {
-                    renderer->SetDrawColor(toy2d::Color{0, 0, 1});
-                }
+                // if (event.key.keysym.sym == SDLK_0) {
+                //     renderer->SetDrawColor(toy2d::Color{1, 0, 0});
+                // }
+                // if (event.key.keysym.sym == SDLK_1) {
+                //     renderer->SetDrawColor(toy2d::Color{0, 1, 0});
+                // }
+                // if (event.key.keysym.sym == SDLK_2) {
+                //     renderer->SetDrawColor(toy2d::Color{0, 0, 1});
+                // }
             }
         }
         renderer->DrawRect(toy2d::Rect{toy2d::Vec{x, y},

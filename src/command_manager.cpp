@@ -46,4 +46,21 @@ void CommandManager::FreeCmd(const vk::CommandBuffer& cmdBuf) {
     Context::Instance().device.freeCommandBuffers(pool_, cmdBuf);
 }
 
+void CommandManager::ExecuteCmd(vk::Queue queue, RecordCmdFunc func) {
+    auto cmdBuf = CreateOneCommandBuffer();
+
+    vk::CommandBufferBeginInfo beginInfo;
+    beginInfo.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+    cmdBuf.begin(beginInfo);
+        if (func) func(cmdBuf);
+    cmdBuf.end();
+
+    vk::SubmitInfo submitInfo;
+    submitInfo.setCommandBuffers(cmdBuf);
+    queue.submit(submitInfo);
+    queue.waitIdle();
+    Context::Instance().device.waitIdle();
+    FreeCmd(cmdBuf);
+}
+
 }
