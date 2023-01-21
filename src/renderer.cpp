@@ -41,6 +41,23 @@ Renderer::~Renderer() {
 void Renderer::DrawRect(const Rect& rect) {
     auto& ctx = Context::Instance();
     auto& device = ctx.device;
+    auto& cmd = cmdBufs_[curFrame_];
+    vk::DeviceSize offset = 0;
+    cmd.bindVertexBuffers(0, verticesBuffer_->buffer, offset);
+    cmd.bindIndexBuffer(indicesBuffer_->buffer, 0, vk::IndexType::eUint32);
+
+    auto& layout = Context::Instance().renderProcess->layout;
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+                           layout,
+                           0, {descriptorSets_[curFrame_].set, texture->set.set}, {});
+    auto model = Mat4::CreateTranslate(rect.position).Mul(Mat4::CreateScale(rect.size));
+    cmd.pushConstants(layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Mat4), model.GetData());
+    cmd.drawIndexed(6, 1, 0, 0, 0);
+}
+
+void Renderer::StartRender() {
+    auto& ctx = Context::Instance();
+    auto& device = ctx.device;
     if (device.waitForFences(fences_[curFrame_], true, std::numeric_limits<std::uint64_t>::max()) != vk::Result::eSuccess) {
         throw std::runtime_error("wait for fence failed");
     }
@@ -51,7 +68,7 @@ void Renderer::DrawRect(const Rect& rect) {
     if (resultValue.result != vk::Result::eSuccess) {
         throw std::runtime_error("wait for image in swapchain failed");
     }
-    auto imageIndex = resultValue.value;
+    imageIndex_ = resultValue.value;
 
     auto& cmdMgr = ctx.commandManager;
     auto& cmd = cmdBufs_[curFrame_];
@@ -64,23 +81,17 @@ void Renderer::DrawRect(const Rect& rect) {
     clearValue.setColor(vk::ClearColorValue(std::array<float, 4>{0.1, 0.1, 0.1, 1}));
     vk::RenderPassBeginInfo renderPassBegin;
     renderPassBegin.setRenderPass(ctx.renderProcess->renderPass)
-                   .setFramebuffer(swapchain->framebuffers[imageIndex])
+                   .setFramebuffer(swapchain->framebuffers[imageIndex_])
                    .setClearValues(clearValue)
                    .setRenderArea(vk::Rect2D({}, swapchain->GetExtent()));
     cmd.beginRenderPass(&renderPassBegin, vk::SubpassContents::eInline);
     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, ctx.renderProcess->graphicsPipeline);
+}
 
-    vk::DeviceSize offset = 0;
-    cmd.bindVertexBuffers(0, verticesBuffer_->buffer, offset);
-    cmd.bindIndexBuffer(indicesBuffer_->buffer, 0, vk::IndexType::eUint32);
-
-    auto& layout = Context::Instance().renderProcess->layout;
-    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                           layout,
-                           0, {descriptorSets_[curFrame_].set, texture->set.set}, {});
-    auto model = Mat4::CreateTranslate(rect.position).Mul(Mat4::CreateScale(rect.size));
-    cmd.pushConstants(layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Mat4), model.GetData());
-    cmd.drawIndexed(6, 1, 0, 0, 0);
+void Renderer::EndRender() {
+    auto& ctx = Context::Instance();
+    auto& swapchain = ctx.swapchain;
+    auto& cmd = cmdBufs_[curFrame_];
     cmd.endRenderPass();
     cmd.end();
 
@@ -95,13 +106,16 @@ void Renderer::DrawRect(const Rect& rect) {
     vk::PresentInfoKHR presentInfo;
     presentInfo.setWaitSemaphores(renderFinishSems_[curFrame_])
                .setSwapchains(swapchain->swapchain)
-               .setImageIndices(imageIndex);
+               .setImageIndices(imageIndex_);
     if (ctx.presentQueue.presentKHR(presentInfo) != vk::Result::eSuccess) {
         throw std::runtime_error("present queue execute failed");
     }
 
     curFrame_ = (curFrame_ + 1) % maxFlightCount_;
+
 }
+
+
 
 void Renderer::createFences() {
     fences_.resize(maxFlightCount_, nullptr);

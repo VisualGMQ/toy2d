@@ -52,19 +52,12 @@ int main(int argc, char** argv) {
                 if (event.key.keysym.sym == SDLK_s) {
                     y += 10;
                 }
-                // if (event.key.keysym.sym == SDLK_0) {
-                //     renderer->SetDrawColor(toy2d::Color{1, 0, 0});
-                // }
-                // if (event.key.keysym.sym == SDLK_1) {
-                //     renderer->SetDrawColor(toy2d::Color{0, 1, 0});
-                // }
-                // if (event.key.keysym.sym == SDLK_2) {
-                //     renderer->SetDrawColor(toy2d::Color{0, 0, 1});
-                // }
             }
         }
+        renderer->StartRender();
         renderer->DrawRect(toy2d::Rect{toy2d::Vec{x, y},
                                        toy2d::Size{200, 300}});
+        renderer->EndRender();
     }
     toy2d::Quit();
 

@@ -20,9 +20,13 @@ public:
     void DrawRect(const Rect&);
     void SetDrawColor(const Color&);
 
+    void StartRender();
+    void EndRender();
+
 private:
     int maxFlightCount_;
     int curFrame_;
+    uint32_t imageIndex_;
     std::vector<vk::Fence> fences_;
     std::vector<vk::Semaphore> imageAvaliableSems_;
     std::vector<vk::Semaphore> renderFinishSems_;
