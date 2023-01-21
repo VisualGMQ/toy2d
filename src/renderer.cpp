@@ -11,7 +11,6 @@ Renderer::Renderer(int maxFlightCount): maxFlightCount_(maxFlightCount), curFram
     createBuffers();
     createUniformBuffers(maxFlightCount);
     bufferData();
-    createTexture();
     descriptorSets_ = DescriptorSetManager::Instance().AllocBufferSets(maxFlightCount);
     updateDescriptorSets();
     initMats();
@@ -22,7 +21,6 @@ Renderer::Renderer(int maxFlightCount): maxFlightCount_(maxFlightCount), curFram
 Renderer::~Renderer() {
     auto& device = Context::Instance().device;
     device.destroySampler(sampler);
-    texture.reset();
     verticesBuffer_.reset();
     indicesBuffer_.reset();
     uniformBuffers_.clear();
@@ -38,7 +36,7 @@ Renderer::~Renderer() {
     }
 }
 
-void Renderer::DrawRect(const Rect& rect) {
+void Renderer::DrawTexture(const Rect& rect, Texture& texture) {
     auto& ctx = Context::Instance();
     auto& device = ctx.device;
     auto& cmd = cmdBufs_[curFrame_];
@@ -49,7 +47,7 @@ void Renderer::DrawRect(const Rect& rect) {
     auto& layout = Context::Instance().renderProcess->layout;
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
                            layout,
-                           0, {descriptorSets_[curFrame_].set, texture->set.set}, {});
+                           0, {descriptorSets_[curFrame_].set, texture.set.set}, {});
     auto model = Mat4::CreateTranslate(rect.position).Mul(Mat4::CreateScale(rect.size));
     cmd.pushConstants(layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Mat4), model.GetData());
     cmd.drawIndexed(6, 1, 0, 0, 0);
@@ -112,10 +110,7 @@ void Renderer::EndRender() {
     }
 
     curFrame_ = (curFrame_ + 1) % maxFlightCount_;
-
 }
-
-
 
 void Renderer::createFences() {
     fences_.resize(maxFlightCount_, nullptr);
@@ -303,17 +298,13 @@ void Renderer::updateDescriptorSets() {
 
         writeInfos[1].setBufferInfo(bufferInfo2)
                      .setDstBinding(1)
-                     .setDstArrayElement(0)
                      .setDescriptorCount(1)
+                     .setDstArrayElement(0)
                      .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                      .setDstSet(descriptorSets_[i].set);
 
         Context::Instance().device.updateDescriptorSets(writeInfos, {});
     }
-}
-
-void Renderer::createTexture() {
-    texture.reset(new Texture("resources/role.png"));
 }
 
 }

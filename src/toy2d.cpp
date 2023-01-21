@@ -20,8 +20,11 @@ void Init(std::vector<const char*>& extensions, Context::GetSurfaceCallback cb, 
     renderer_->SetProject(windowWidth, 0, 0, windowHeight, -1, 1);
 }
 
-void Quit() {
+void WaitIdle() {
     Context::Instance().device.waitIdle();
+}
+
+void Quit() {
     renderer_.reset();
     DescriptorSetManager::Quit();
     Context::Quit();

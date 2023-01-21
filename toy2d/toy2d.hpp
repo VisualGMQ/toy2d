@@ -9,6 +9,7 @@
 namespace toy2d {
 
 void Init(std::vector<const char*>& extensions, Context::GetSurfaceCallback, int windowWidth, int windowHeight);
+void WaitIdle();
 void Quit();
 Renderer* GetRenderer();
 

@@ -17,7 +17,7 @@ public:
     ~Renderer();
 
     void SetProject(int right, int left, int bottom, int top, int far, int near);
-    void DrawRect(const Rect&);
+    void DrawTexture(const Rect&, Texture& texture);
     void SetDrawColor(const Color&);
 
     void StartRender();
@@ -40,8 +40,6 @@ private:
     std::vector<std::unique_ptr<Buffer>> deviceUniformBuffers_;
     std::vector<std::unique_ptr<Buffer>> deviceColorBuffers_;
     std::vector<DescriptorSetManager::SetInfo> descriptorSets_;
-
-    std::unique_ptr<Texture> texture;
     vk::Sampler sampler;
 
     void createFences();
@@ -56,7 +54,6 @@ private:
     void initMats();
     void updateDescriptorSets();
     void transformBuffer2Device(Buffer& src, Buffer& dst, size_t srcOffset, size_t dstOffset, size_t size);
-    void createTexture();
 
     std::uint32_t queryBufferMemTypeIndex(std::uint32_t, vk::MemoryPropertyFlags);
 };

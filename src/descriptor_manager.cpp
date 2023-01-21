@@ -30,15 +30,17 @@ DescriptorSetManager::~DescriptorSetManager() {
 }
 
 void DescriptorSetManager::addImageSetPool() {
+    constexpr uint32_t MaxSetNum = 10;
+
     vk::DescriptorPoolSize size;
     size.setType(vk::DescriptorType::eCombinedImageSampler)
-        .setDescriptorCount(maxFlight_);
+        .setDescriptorCount(MaxSetNum);
     vk::DescriptorPoolCreateInfo createInfo;
-    createInfo.setMaxSets(maxFlight_)
-              .setPoolSizes(size)
+    createInfo.setMaxSets(MaxSetNum)
+			  .setPoolSizes(size)
               .setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet);
     auto pool = Context::Instance().device.createDescriptorPool(createInfo);
-    avalibleImageSetPool_.push_back({pool, maxFlight_});
+    avalibleImageSetPool_.push_back({pool, MaxSetNum});
 }
 
 std::vector<DescriptorSetManager::SetInfo> DescriptorSetManager::AllocBufferSets(uint32_t num) {
@@ -60,7 +62,7 @@ std::vector<DescriptorSetManager::SetInfo> DescriptorSetManager::AllocBufferSets
 }
 
 DescriptorSetManager::SetInfo DescriptorSetManager::AllocImageSet() {
-    std::vector<vk::DescriptorSetLayout> layouts(maxFlight_, Context::Instance().shader->GetDescriptorSetLayouts()[1]);
+    std::vector<vk::DescriptorSetLayout> layouts{ Context::Instance().shader->GetDescriptorSetLayouts()[1] };
     vk::DescriptorSetAllocateInfo allocInfo;
     auto& poolInfo = getAvaliableImagePoolInfo();
     allocInfo.setDescriptorPool(poolInfo.pool_)
@@ -72,7 +74,7 @@ DescriptorSetManager::SetInfo DescriptorSetManager::AllocImageSet() {
     result.pool = poolInfo.pool_;
     result.set = sets[0];
 
-    poolInfo.remainNum_ --;
+    poolInfo.remainNum_ = std::max<int>(static_cast<int>(poolInfo.remainNum_) - sets.size(), 0);
     if (poolInfo.remainNum_ == 0) {
         fulledImageSetPool_.push_back(poolInfo);
         avalibleImageSetPool_.pop_back();

@@ -166,6 +166,7 @@ void Texture::updateDescriptorSet() {
           .setDstBinding(0)
           .setDstArrayElement(0)
           .setDstSet(set.set)
+          .setDescriptorCount(1)
           .setDescriptorType(vk::DescriptorType::eCombinedImageSampler);
     Context::Instance().device.updateDescriptorSets(writer, {});
 }

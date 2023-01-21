@@ -33,6 +33,9 @@ int main(int argc, char** argv) {
 
     float x = 100, y = 100;
 
+    std::unique_ptr<toy2d::Texture> texture1(new toy2d::Texture("resources/role.png"));
+    std::unique_ptr<toy2d::Texture> texture2(new toy2d::Texture("resources/texture.jpg"));
+
     renderer->SetDrawColor(toy2d::Color{1, 1, 1});
     while (!shouldClose) {
         while (SDL_PollEvent(&event)) {
@@ -55,10 +58,14 @@ int main(int argc, char** argv) {
             }
         }
         renderer->StartRender();
-        renderer->DrawRect(toy2d::Rect{toy2d::Vec{x, y},
-                                       toy2d::Size{200, 300}});
+        renderer->DrawTexture(toy2d::Rect{toy2d::Vec{x, y}, toy2d::Size{200, 300}}, *texture1);
+        renderer->DrawTexture(toy2d::Rect{toy2d::Vec{500, 100}, toy2d::Size{200, 300}}, *texture2);
         renderer->EndRender();
     }
+
+    toy2d::WaitIdle();
+    texture1.reset();
+    texture2.reset();
     toy2d::Quit();
 
     SDL_DestroyWindow(window);
