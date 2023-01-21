@@ -7,7 +7,7 @@ layout(set = 0, binding = 1) uniform UniformBuffer {
     vec3 color;
 } ubo;
 
-layout(set = 0, binding = 2) uniform sampler2D Sampler;
+layout(set = 1, binding = 0) uniform sampler2D Sampler;
 
 void main() {
     outColor = vec4(ubo.color, 1.0) * texture(Sampler, Texcoord);

@@ -30,10 +30,17 @@ Texture::Texture(std::string_view filename) {
     createImageView();
 
     stbi_image_free(pixels);
+
+    createSampler();
+    set = DescriptorSetManager::Instance().AllocImageSet();
+
+    updateDescriptorSet();
 }
 
 Texture::~Texture() {
     auto& device = Context::Instance().device;
+    DescriptorSetManager::Instance().FreeImageSet(set);
+    device.destroySampler(sampler);
     device.destroyImageView(view);
     device.freeMemory(memory);
     device.destroyImage(image);
@@ -147,6 +154,35 @@ void Texture::createImageView() {
               .setFormat(vk::Format::eR8G8B8A8Srgb)
               .setSubresourceRange(range);
     view = Context::Instance().device.createImageView(createInfo);
+}
+
+void Texture::updateDescriptorSet() {
+    vk::WriteDescriptorSet writer;
+    vk::DescriptorImageInfo imageInfo;
+    imageInfo.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+             .setImageView(view)
+             .setSampler(sampler);
+    writer.setImageInfo(imageInfo)
+          .setDstBinding(0)
+          .setDstArrayElement(0)
+          .setDstSet(set.set)
+          .setDescriptorType(vk::DescriptorType::eCombinedImageSampler);
+    Context::Instance().device.updateDescriptorSets(writer, {});
+}
+
+void Texture::createSampler() {
+    vk::SamplerCreateInfo createInfo;
+    createInfo.setMagFilter(vk::Filter::eLinear)
+              .setMinFilter(vk::Filter::eLinear)
+              .setAddressModeU(vk::SamplerAddressMode::eRepeat)
+              .setAddressModeV(vk::SamplerAddressMode::eRepeat)
+              .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+              .setAnisotropyEnable(false)
+              .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+              .setUnnormalizedCoordinates(false)
+              .setCompareEnable(false)
+              .setMipmapMode(vk::SamplerMipmapMode::eLinear);
+    sampler = Context::Instance().device.createSampler(createInfo);
 }
 
 }

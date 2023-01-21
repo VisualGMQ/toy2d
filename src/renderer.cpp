@@ -12,9 +12,7 @@ Renderer::Renderer(int maxFlightCount): maxFlightCount_(maxFlightCount), curFram
     createUniformBuffers(maxFlightCount);
     bufferData();
     createTexture();
-    createSampler();
-    createDescriptorPool(maxFlightCount);
-    allocDescriptorSets(maxFlightCount);
+    descriptorSets_ = DescriptorSetManager::Instance().AllocBufferSets(maxFlightCount);
     updateDescriptorSets();
     initMats();
 
@@ -25,7 +23,6 @@ Renderer::~Renderer() {
     auto& device = Context::Instance().device;
     device.destroySampler(sampler);
     texture.reset();
-    device.destroyDescriptorPool(descriptorPool_);
     verticesBuffer_.reset();
     indicesBuffer_.reset();
     uniformBuffers_.clear();
@@ -80,7 +77,7 @@ void Renderer::DrawRect(const Rect& rect) {
     auto& layout = Context::Instance().renderProcess->layout;
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
                            layout,
-                           0, descriptorSets_[curFrame_], {});
+                           0, {descriptorSets_[curFrame_].set, texture->set.set}, {});
     auto model = Mat4::CreateTranslate(rect.position).Mul(Mat4::CreateScale(rect.size));
     cmd.pushConstants(layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Mat4), model.GetData());
     cmd.drawIndexed(6, 1, 0, 0, 0);
@@ -268,30 +265,6 @@ void Renderer::SetProject(int right, int left, int bottom, int top, int far, int
     bufferMVPData();
 }
 
-void Renderer::createDescriptorPool(int flightCount) {
-    vk::DescriptorPoolCreateInfo createInfo;
-    std::vector<vk::DescriptorPoolSize> sizes(2);
-    sizes[0].setDescriptorCount(flightCount * 2)
-            .setType(vk::DescriptorType::eUniformBuffer);
-    sizes[1].setDescriptorCount(flightCount)
-            .setType(vk::DescriptorType::eCombinedImageSampler);
-    createInfo.setPoolSizes(sizes)
-			  .setMaxSets(flightCount);
-    descriptorPool_ = Context::Instance().device.createDescriptorPool(createInfo);
-}
-
-std::vector<vk::DescriptorSet> Renderer::allocDescriptorSet(int flightCount) {
-    std::vector layouts(flightCount, Context::Instance().shader->GetDescriptorSetLayouts()[0]);
-    vk::DescriptorSetAllocateInfo allocInfo;
-    allocInfo.setDescriptorPool(descriptorPool_)
-			 .setSetLayouts(layouts);
-    return Context::Instance().device.allocateDescriptorSets(allocInfo);
-}
-
-void Renderer::allocDescriptorSets(int flightCount) {
-    descriptorSets_ = allocDescriptorSet(flightCount);
-}
-
 void Renderer::updateDescriptorSets() {
     for (int i = 0; i < descriptorSets_.size(); i++) {
         // bind MVP buffer
@@ -300,13 +273,13 @@ void Renderer::updateDescriptorSets() {
                    .setOffset(0)
 				   .setRange(sizeof(Mat4) * 2);
 
-        std::vector<vk::WriteDescriptorSet> writeInfos(3);
+        std::vector<vk::WriteDescriptorSet> writeInfos(2);
         writeInfos[0].setBufferInfo(bufferInfo1)
                      .setDstBinding(0)
                      .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                      .setDescriptorCount(1)
                      .setDstArrayElement(0)
-                     .setDstSet(descriptorSets_[i]);
+                     .setDstSet(descriptorSets_[i].set);
 
         // bind Color buffer
         vk::DescriptorBufferInfo bufferInfo2;
@@ -319,38 +292,10 @@ void Renderer::updateDescriptorSets() {
                      .setDstArrayElement(0)
                      .setDescriptorCount(1)
                      .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-                     .setDstSet(descriptorSets_[i]);
-
-        // bind image
-        vk::DescriptorImageInfo imageInfo;
-        imageInfo.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                 .setImageView(texture->view)
-                 .setSampler(sampler);
-
-        writeInfos[2].setImageInfo(imageInfo)
-                     .setDstBinding(2)
-                     .setDstArrayElement(0)
-                     .setDescriptorCount(1)
-                     .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                     .setDstSet(descriptorSets_[i]);
+                     .setDstSet(descriptorSets_[i].set);
 
         Context::Instance().device.updateDescriptorSets(writeInfos, {});
     }
-}
-
-void Renderer::createSampler() {
-    vk::SamplerCreateInfo createInfo;
-    createInfo.setMagFilter(vk::Filter::eLinear)
-              .setMinFilter(vk::Filter::eLinear)
-              .setAddressModeU(vk::SamplerAddressMode::eRepeat)
-              .setAddressModeV(vk::SamplerAddressMode::eRepeat)
-              .setAddressModeW(vk::SamplerAddressMode::eRepeat)
-              .setAnisotropyEnable(false)
-              .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
-              .setUnnormalizedCoordinates(false)
-              .setCompareEnable(false)
-              .setMipmapMode(vk::SamplerMipmapMode::eLinear);
-    sampler = Context::Instance().device.createSampler(createInfo);
 }
 
 void Renderer::createTexture() {

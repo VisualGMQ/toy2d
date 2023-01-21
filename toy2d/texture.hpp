@@ -2,6 +2,7 @@
 
 #include "vulkan/vulkan.hpp"
 #include "buffer.hpp"
+#include "descriptor_manager.hpp"
 #include <string_view>
 
 namespace toy2d {
@@ -14,6 +15,8 @@ public:
     vk::Image image;
     vk::DeviceMemory memory;
     vk::ImageView view;
+    vk::Sampler sampler;
+    DescriptorSetManager::SetInfo set;
 
 private:
     void createImage(uint32_t w, uint32_t h);
@@ -23,6 +26,8 @@ private:
     void transitionImageLayoutFromUndefine2Dst();
     void transitionImageLayoutFromDst2Optimal();
     void transformData2Image(Buffer&, uint32_t w, uint32_t h);
+    void updateDescriptorSet();
+    void createSampler();
 };
 
 

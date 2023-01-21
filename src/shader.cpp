@@ -20,7 +20,7 @@ Shader::Shader(const std::vector<char>& vertexSource, const std::vector<char>& f
 
 void Shader::initDescriptorSetLayouts() {
     vk::DescriptorSetLayoutCreateInfo createInfo;
-    std::vector<vk::DescriptorSetLayoutBinding> bindings(3);
+    std::vector<vk::DescriptorSetLayoutBinding> bindings(2);
     bindings[0].setBinding(0)
                .setDescriptorCount(1)
                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
@@ -29,7 +29,12 @@ void Shader::initDescriptorSetLayouts() {
                .setDescriptorCount(1)
                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                .setStageFlags(vk::ShaderStageFlagBits::eFragment);
-    bindings[2].setBinding(2)
+    createInfo.setBindings(bindings);
+
+    layouts_.push_back(Context::Instance().device.createDescriptorSetLayout(createInfo));
+
+    bindings.resize(1);
+    bindings[0].setBinding(0)
                .setDescriptorCount(1)
                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                .setStageFlags(vk::ShaderStageFlagBits::eFragment);

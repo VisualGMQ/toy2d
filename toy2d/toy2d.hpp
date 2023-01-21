@@ -3,6 +3,7 @@
 #include "context.hpp"
 #include "render_process.hpp"
 #include "renderer.hpp"
+#include "descriptor_manager.hpp"
 #include <memory>
 
 namespace toy2d {

@@ -14,13 +14,16 @@ void Init(std::vector<const char*>& extensions, Context::GetSurfaceCallback cb, 
     ctx.swapchain->InitFramebuffers();
     ctx.initCommandPool();
 
-    renderer_ = std::make_unique<Renderer>();
+    int maxFlightCount = 2;
+    DescriptorSetManager::Init(maxFlightCount);
+    renderer_ = std::make_unique<Renderer>(maxFlightCount);
     renderer_->SetProject(windowWidth, 0, 0, windowHeight, -1, 1);
 }
 
 void Quit() {
     Context::Instance().device.waitIdle();
     renderer_.reset();
+    DescriptorSetManager::Quit();
     Context::Quit();
 }
 
