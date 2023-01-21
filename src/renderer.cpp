@@ -354,7 +354,7 @@ void Renderer::createSampler() {
 }
 
 void Renderer::createTexture() {
-    texture.reset(new Texture("resources/texture.jpg"));
+    texture.reset(new Texture("resources/role.png"));
 }
 
 }

@@ -93,12 +93,26 @@ vk::Pipeline RenderProcess::createGraphicsPipeline(const Shader& shader) {
     // We currently don't need depth and stencil buffer
 
     // 7. blending
+    /*
+     * newRGB = (srcFactor * srcRGB) <op> (dstFactor * dstRGB)
+     * newA = (srcFactor * srcA) <op> (dstFactor * dstA)
+     *
+     * newRGB = 1 * srcRGB + (1 - srcA) * dstRGB
+     * newA = srcA === 1 * srcA + 0 * dstA
+     */
     vk::PipelineColorBlendAttachmentState blendAttachmentState;
-    blendAttachmentState.setBlendEnable(false)
+    blendAttachmentState.setBlendEnable(true)
                         .setColorWriteMask(vk::ColorComponentFlagBits::eA|
                                            vk::ColorComponentFlagBits::eB|
                                            vk::ColorComponentFlagBits::eG|
-                                           vk::ColorComponentFlagBits::eR);
+                                           vk::ColorComponentFlagBits::eR)
+                        .setSrcColorBlendFactor(vk::BlendFactor::eOne)
+                        .setDstColorBlendFactor(vk::BlendFactor::eOneMinusSrcAlpha)
+                        .setColorBlendOp(vk::BlendOp::eAdd)
+                        .setSrcAlphaBlendFactor(vk::BlendFactor::eOne)
+                        .setDstAlphaBlendFactor(vk::BlendFactor::eZero)
+                        .setAlphaBlendOp(vk::BlendOp::eAdd);
+
     vk::PipelineColorBlendStateCreateInfo blendInfo;
     blendInfo.setAttachments(blendAttachmentState)
              .setLogicOpEnable(false);
