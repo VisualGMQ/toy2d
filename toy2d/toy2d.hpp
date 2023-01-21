@@ -9,8 +9,9 @@
 namespace toy2d {
 
 void Init(std::vector<const char*>& extensions, Context::GetSurfaceCallback, int windowWidth, int windowHeight);
-void WaitIdle();
 void Quit();
+Texture* LoadTexture(const std::string& filename);
+void DestroyTexture(Texture*);
 Renderer* GetRenderer();
 
 }

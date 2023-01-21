@@ -33,8 +33,8 @@ int main(int argc, char** argv) {
 
     float x = 100, y = 100;
 
-    std::unique_ptr<toy2d::Texture> texture1(new toy2d::Texture("resources/role.png"));
-    std::unique_ptr<toy2d::Texture> texture2(new toy2d::Texture("resources/texture.jpg"));
+    toy2d::Texture* texture1 = toy2d::LoadTexture("resources/role.png");
+    toy2d::Texture* texture2 = toy2d::LoadTexture("resources/texture.jpg");
 
     renderer->SetDrawColor(toy2d::Color{1, 1, 1});
     while (!shouldClose) {
@@ -63,9 +63,9 @@ int main(int argc, char** argv) {
         renderer->EndRender();
     }
 
-    toy2d::WaitIdle();
-    texture1.reset();
-    texture2.reset();
+    toy2d::DestroyTexture(texture1);
+    toy2d::DestroyTexture(texture2);
+
     toy2d::Quit();
 
     SDL_DestroyWindow(window);

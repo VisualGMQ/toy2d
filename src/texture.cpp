@@ -186,4 +186,28 @@ void Texture::createSampler() {
     sampler = Context::Instance().device.createSampler(createInfo);
 }
 
+
+std::unique_ptr<TextureManager> TextureManager::instance_ = nullptr;
+
+Texture* TextureManager::Load(const std::string& filename) {
+    datas_.push_back(std::unique_ptr<Texture>(new Texture(filename)));
+    return datas_.back().get();
+}
+
+void TextureManager::Clear() {
+    datas_.clear();
+}
+
+void TextureManager::Destroy(Texture* texture) {
+    auto it = std::find_if(datas_.begin(), datas_.end(),
+                           [&](const std::unique_ptr<Texture>& t) {
+                                return t.get() == texture;
+                           });
+    if (it != datas_.end()) {
+        Context::Instance().device.waitIdle();
+        datas_.erase(it);
+        return;
+    }
+}
+
 }

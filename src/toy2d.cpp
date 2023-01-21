@@ -20,14 +20,20 @@ void Init(std::vector<const char*>& extensions, Context::GetSurfaceCallback cb, 
     renderer_->SetProject(windowWidth, 0, 0, windowHeight, -1, 1);
 }
 
-void WaitIdle() {
-    Context::Instance().device.waitIdle();
-}
-
 void Quit() {
+    Context::Instance().device.waitIdle();
     renderer_.reset();
+    TextureManager::Instance().Clear();
     DescriptorSetManager::Quit();
     Context::Quit();
+}
+
+Texture* LoadTexture(const std::string& filename) {
+    return TextureManager::Instance().Load(filename);
+}
+
+void DestroyTexture(Texture* texture) {
+    TextureManager::Instance().Destroy(texture);
 }
 
 Renderer* GetRenderer() {
