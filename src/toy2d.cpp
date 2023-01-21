@@ -13,6 +13,7 @@ void Init(std::vector<const char*>& extensions, Context::GetSurfaceCallback cb, 
     ctx.initGraphicsPipeline();
     ctx.swapchain->InitFramebuffers();
     ctx.initCommandPool();
+    ctx.initSampler();
 
     int maxFlightCount = 2;
     DescriptorSetManager::Init(maxFlightCount);

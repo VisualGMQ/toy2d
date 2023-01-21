@@ -18,7 +18,6 @@ public:
     vk::Image image;
     vk::DeviceMemory memory;
     vk::ImageView view;
-    vk::Sampler sampler;
     DescriptorSetManager::SetInfo set;
 
 private:
@@ -31,7 +30,6 @@ private:
     void transitionImageLayoutFromDst2Optimal();
     void transformData2Image(Buffer&, uint32_t w, uint32_t h);
     void updateDescriptorSet();
-    void createSampler();
 };
 
 class TextureManager final {

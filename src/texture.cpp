@@ -31,7 +31,6 @@ Texture::Texture(std::string_view filename) {
 
     stbi_image_free(pixels);
 
-    createSampler();
     set = DescriptorSetManager::Instance().AllocImageSet();
 
     updateDescriptorSet();
@@ -40,7 +39,6 @@ Texture::Texture(std::string_view filename) {
 Texture::~Texture() {
     auto& device = Context::Instance().device;
     DescriptorSetManager::Instance().FreeImageSet(set);
-    device.destroySampler(sampler);
     device.destroyImageView(view);
     device.freeMemory(memory);
     device.destroyImage(image);
@@ -161,7 +159,7 @@ void Texture::updateDescriptorSet() {
     vk::DescriptorImageInfo imageInfo;
     imageInfo.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
              .setImageView(view)
-             .setSampler(sampler);
+             .setSampler(Context::Instance().sampler);
     writer.setImageInfo(imageInfo)
           .setDstBinding(0)
           .setDstArrayElement(0)
@@ -170,22 +168,6 @@ void Texture::updateDescriptorSet() {
           .setDescriptorType(vk::DescriptorType::eCombinedImageSampler);
     Context::Instance().device.updateDescriptorSets(writer, {});
 }
-
-void Texture::createSampler() {
-    vk::SamplerCreateInfo createInfo;
-    createInfo.setMagFilter(vk::Filter::eLinear)
-              .setMinFilter(vk::Filter::eLinear)
-              .setAddressModeU(vk::SamplerAddressMode::eRepeat)
-              .setAddressModeV(vk::SamplerAddressMode::eRepeat)
-              .setAddressModeW(vk::SamplerAddressMode::eRepeat)
-              .setAnisotropyEnable(false)
-              .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
-              .setUnnormalizedCoordinates(false)
-              .setCompareEnable(false)
-              .setMipmapMode(vk::SamplerMipmapMode::eLinear);
-    sampler = Context::Instance().device.createSampler(createInfo);
-}
-
 
 std::unique_ptr<TextureManager> TextureManager::instance_ = nullptr;
 

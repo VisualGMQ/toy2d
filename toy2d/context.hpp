@@ -39,6 +39,7 @@ public:
     std::unique_ptr<RenderProcess> renderProcess;
     std::unique_ptr<CommandManager> commandManager;
     std::unique_ptr<Shader> shader;
+    vk::Sampler sampler;
 
 private:
     static Context* instance_;
@@ -54,6 +55,7 @@ private:
     void initGraphicsPipeline();
     void initCommandPool();
     void initShaderModules();
+    void initSampler();
 
     vk::Instance createInstance(std::vector<const char*>& extensions);
     vk::PhysicalDevice pickupPhysicalDevice();

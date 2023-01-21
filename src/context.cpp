@@ -138,13 +138,30 @@ void Context::initShaderModules() {
     shader = std::make_unique<Shader>(vertexSource, fragSource);
 }
 
+void Context::initSampler() {
+    vk::SamplerCreateInfo createInfo;
+    createInfo.setMagFilter(vk::Filter::eLinear)
+              .setMinFilter(vk::Filter::eLinear)
+              .setAddressModeU(vk::SamplerAddressMode::eRepeat)
+              .setAddressModeV(vk::SamplerAddressMode::eRepeat)
+              .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+              .setAnisotropyEnable(false)
+              .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+              .setUnnormalizedCoordinates(false)
+              .setCompareEnable(false)
+              .setMipmapMode(vk::SamplerMipmapMode::eLinear);
+    sampler = Context::Instance().device.createSampler(createInfo);
+}
+
 Context::~Context() {
     shader.reset();
+    device.destroySampler(sampler);
     commandManager.reset();
     renderProcess.reset();
     swapchain.reset();
     device.destroy();
     instance.destroy();
 }
+
 
 }
