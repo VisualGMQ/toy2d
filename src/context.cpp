@@ -31,11 +31,7 @@ Context::Context(std::vector<const char*>& extensions, GetSurfaceCallback cb) {
         exit(1);
     }
 
-    surface_ = getSurfaceCb_(instance);
-    if (!surface_) {
-        std::cout << "create surface failed" << std::endl;
-        exit(1);
-    }
+    getSurface();
 
     device = createDevice(surface_);
     if (!device) {
@@ -45,6 +41,14 @@ Context::Context(std::vector<const char*>& extensions, GetSurfaceCallback cb) {
 
     graphicsQueue = device.getQueue(queueInfo.graphicsIndex.value(), 0);
     presentQueue = device.getQueue(queueInfo.presentIndex.value(), 0);
+}
+
+void Context::getSurface() {
+    surface_ = getSurfaceCb_(instance);
+    if (!surface_) {
+        std::cout << "create surface failed" << std::endl;
+        exit(1);
+    }
 }
 
 vk::Instance Context::createInstance(std::vector<const char*>& extensions) {
@@ -125,7 +129,7 @@ void Context::initRenderProcess() {
 }
 
 void Context::initGraphicsPipeline() {
-    renderProcess->RecreateGraphicsPipeline(*shader);
+    renderProcess->CreateGraphicsPipeline(*shader);
 }
 
 void Context::initCommandPool() {

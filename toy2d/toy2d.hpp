@@ -12,6 +12,7 @@ void Init(std::vector<const char*>& extensions, Context::GetSurfaceCallback, int
 void Quit();
 Texture* LoadTexture(const std::string& filename);
 void DestroyTexture(Texture*);
+void ResizeSwapchainImage(int w, int h);
 Renderer* GetRenderer();
 
 }

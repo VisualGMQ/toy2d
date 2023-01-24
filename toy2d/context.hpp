@@ -20,6 +20,7 @@ class Context {
 public:
     using GetSurfaceCallback = std::function<VkSurfaceKHR(VkInstance)>;
     friend void Init(std::vector<const char*>&, GetSurfaceCallback, int, int);
+    friend void ResizeSwapchainImage(int w, int h);
 
     static void Init(std::vector<const char*>& extensions, GetSurfaceCallback);
     static void Quit();
@@ -43,7 +44,7 @@ public:
 
 private:
     static Context* instance_;
-    vk::SurfaceKHR surface_;
+    vk::SurfaceKHR surface_ = nullptr;
 
     GetSurfaceCallback getSurfaceCb_ = nullptr;
 
@@ -56,6 +57,7 @@ private:
     void initCommandPool();
     void initShaderModules();
     void initSampler();
+    void getSurface();
 
     vk::Instance createInstance(std::vector<const char*>& extensions);
     vk::PhysicalDevice pickupPhysicalDevice();

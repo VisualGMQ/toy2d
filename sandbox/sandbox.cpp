@@ -9,7 +9,7 @@ int main(int argc, char** argv) {
     SDL_Window* window = SDL_CreateWindow("sandbox",
                                           SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                           1024, 720,
-                                          SDL_WINDOW_SHOWN|SDL_WINDOW_VULKAN);
+                                          SDL_WINDOW_SHOWN|SDL_WINDOW_RESIZABLE|SDL_WINDOW_VULKAN);
     if (!window) {
         SDL_Log("create window failed");
         exit(2);
@@ -56,11 +56,17 @@ int main(int argc, char** argv) {
                     y += 10;
                 }
             }
+            if (event.type == SDL_WINDOWEVENT) {
+                if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+					toy2d::ResizeSwapchainImage(event.window.data1, event.window.data2);
+                }
+            }
         }
-        renderer->StartRender();
-        renderer->DrawTexture(toy2d::Rect{toy2d::Vec{x, y}, toy2d::Size{200, 300}}, *texture1);
-        renderer->DrawTexture(toy2d::Rect{toy2d::Vec{500, 100}, toy2d::Size{200, 300}}, *texture2);
-        renderer->EndRender();
+
+		renderer->StartRender();
+		renderer->DrawTexture(toy2d::Rect{toy2d::Vec{x, y}, toy2d::Size{200, 300}}, *texture1);
+		renderer->DrawTexture(toy2d::Rect{toy2d::Vec{500, 100}, toy2d::Size{200, 300}}, *texture2);
+		renderer->EndRender();
     }
 
     toy2d::DestroyTexture(texture1);

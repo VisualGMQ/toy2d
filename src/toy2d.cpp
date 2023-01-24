@@ -41,4 +41,14 @@ Renderer* GetRenderer() {
     return renderer_.get();
 }
 
+void ResizeSwapchainImage(int w, int h) {
+    auto& ctx = Context::Instance();
+    ctx.device.waitIdle();
+
+    ctx.swapchain.reset();
+    ctx.getSurface();
+    ctx.initSwapchain(w, h);
+    ctx.swapchain->InitFramebuffers();
+}
+
 }
