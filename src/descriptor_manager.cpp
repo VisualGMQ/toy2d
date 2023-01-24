@@ -103,6 +103,7 @@ void DescriptorSetManager::FreeImageSet(const SetInfo& info) {
         it->remainNum_ ++;
         return;
     }
+    Context::Instance().device.freeDescriptorSets(info.pool, info.set);
 }
 
 DescriptorSetManager::PoolInfo& DescriptorSetManager::getAvaliableImagePoolInfo() {
