@@ -8,7 +8,8 @@ namespace toy2d {
 
 class RenderProcess {
 public:
-    vk::Pipeline graphicsPipeline = nullptr;
+    vk::Pipeline graphicsPipelineWithTriangleTopology = nullptr;
+    vk::Pipeline graphicsPipelineWithLineTopology = nullptr;
     vk::RenderPass renderPass = nullptr;
     vk::PipelineLayout layout = nullptr;
 
@@ -19,9 +20,12 @@ public:
     void CreateRenderPass();
 
 private:
+    vk::PipelineCache pipelineCache_ = nullptr;
+
     vk::PipelineLayout createLayout();
-    vk::Pipeline createGraphicsPipeline(const Shader& shader);
+    vk::Pipeline createGraphicsPipeline(const Shader& shader, vk::PrimitiveTopology);
     vk::RenderPass createRenderPass();
+    vk::PipelineCache createPipelineCache();
 };
 
 }

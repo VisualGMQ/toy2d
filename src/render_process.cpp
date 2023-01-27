@@ -8,19 +8,22 @@ namespace toy2d {
 RenderProcess::RenderProcess() {
     layout = createLayout();
     CreateRenderPass();
-    graphicsPipeline = nullptr;
+    graphicsPipelineWithTriangleTopology = nullptr;
 }
 
 RenderProcess::~RenderProcess() {
     auto& ctx = Context::Instance();
     auto& device = ctx.device;
+    device.destroyPipelineCache(pipelineCache_);
     device.destroyRenderPass(renderPass);
     device.destroyPipelineLayout(layout);
-    device.destroyPipeline(graphicsPipeline);
+    device.destroyPipeline(graphicsPipelineWithTriangleTopology);
+    device.destroyPipeline(graphicsPipelineWithLineTopology);
 }
 
 void RenderProcess::CreateGraphicsPipeline(const Shader& shader) {
-    graphicsPipeline = createGraphicsPipeline(shader);
+    graphicsPipelineWithTriangleTopology = createGraphicsPipeline(shader, vk::PrimitiveTopology::eTriangleList);
+    graphicsPipelineWithLineTopology = createGraphicsPipeline(shader, vk::PrimitiveTopology::eLineList);
 }
 
 void RenderProcess::CreateRenderPass() {
@@ -36,7 +39,7 @@ vk::PipelineLayout RenderProcess::createLayout() {
     return Context::Instance().device.createPipelineLayout(createInfo);
 }
 
-vk::Pipeline RenderProcess::createGraphicsPipeline(const Shader& shader) {
+vk::Pipeline RenderProcess::createGraphicsPipeline(const Shader& shader, vk::PrimitiveTopology topology) {
     auto& ctx = Context::Instance();
 
     vk::GraphicsPipelineCreateInfo createInfo;
@@ -60,7 +63,7 @@ vk::Pipeline RenderProcess::createGraphicsPipeline(const Shader& shader) {
     // 2. vertex assembly
     vk::PipelineInputAssemblyStateCreateInfo inputAsmCreateInfo;
     inputAsmCreateInfo.setPrimitiveRestartEnable(false)
-                      .setTopology(vk::PrimitiveTopology::eTriangleList);
+                      .setTopology(topology);
 
     // 3. viewport and scissor
     vk::PipelineViewportStateCreateInfo viewportInfo;
@@ -111,11 +114,6 @@ vk::Pipeline RenderProcess::createGraphicsPipeline(const Shader& shader) {
     blendInfo.setAttachments(blendAttachmentState)
              .setLogicOpEnable(false);
 
-    // dynamic changing state of pipeline
-    vk::PipelineDynamicStateCreateInfo dynamicState;
-    std::array states = {vk::DynamicState::eViewport, vk::DynamicState::eScissor};
-    dynamicState.setDynamicStates(states);
-
     // create graphics pipeline
     createInfo.setStages(stageCreateInfos)
               .setLayout(layout)
@@ -126,9 +124,8 @@ vk::Pipeline RenderProcess::createGraphicsPipeline(const Shader& shader) {
               .setPMultisampleState(&multisampleInfo)
               .setPColorBlendState(&blendInfo)
               .setRenderPass(renderPass);
-              // .setPDynamicState(&dynamicState);
 
-    auto result = ctx.device.createGraphicsPipeline(nullptr, createInfo);
+    auto result = ctx.device.createGraphicsPipeline(pipelineCache_, createInfo);
     if (result.result != vk::Result::eSuccess) {
         std::cout << "create graphics pipeline failed: " << result.result << std::endl;
     }
@@ -171,6 +168,13 @@ vk::RenderPass RenderProcess::createRenderPass() {
               .setSubpasses(subpassDesc);
 
     return Context::Instance().device.createRenderPass(createInfo);
+}
+
+vk::PipelineCache RenderProcess::createPipelineCache() {
+    vk::PipelineCacheCreateInfo createInfo;
+    createInfo.setInitialDataSize(0);
+
+    return Context::Instance().device.createPipelineCache(createInfo);
 }
 
 }

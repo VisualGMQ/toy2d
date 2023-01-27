@@ -10,10 +10,10 @@ Renderer::Renderer(int maxFlightCount): maxFlightCount_(maxFlightCount), curFram
     createCmdBuffers();
     createBuffers();
     createUniformBuffers(maxFlightCount);
-    bufferData();
     descriptorSets_ = DescriptorSetManager::Instance().AllocBufferSets(maxFlightCount);
     updateDescriptorSets();
     initMats();
+    createWhiteTexture();
 
     SetDrawColor(Color{0, 0, 0});
 }
@@ -21,8 +21,8 @@ Renderer::Renderer(int maxFlightCount): maxFlightCount_(maxFlightCount), curFram
 Renderer::~Renderer() {
     auto& device = Context::Instance().device;
     device.destroySampler(sampler);
-    verticesBuffer_.reset();
-    indicesBuffer_.reset();
+    rectVerticesBuffer_.reset();
+    rectIndicesBuffer_.reset();
     uniformBuffers_.clear();
     colorBuffers_.clear();
     for (auto& sem : imageAvaliableSems_) {
@@ -34,23 +34,6 @@ Renderer::~Renderer() {
     for (auto& fence : fences_) {
         device.destroyFence(fence);
     }
-}
-
-void Renderer::DrawTexture(const Rect& rect, Texture& texture) {
-    auto& ctx = Context::Instance();
-    auto& device = ctx.device;
-    auto& cmd = cmdBufs_[curFrame_];
-    vk::DeviceSize offset = 0;
-    cmd.bindVertexBuffers(0, verticesBuffer_->buffer, offset);
-    cmd.bindIndexBuffer(indicesBuffer_->buffer, 0, vk::IndexType::eUint32);
-
-    auto& layout = Context::Instance().renderProcess->layout;
-    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                           layout,
-                           0, {descriptorSets_[curFrame_].set, texture.set.set}, {});
-    auto model = Mat4::CreateTranslate(rect.position).Mul(Mat4::CreateScale(rect.size));
-    cmd.pushConstants(layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Mat4), model.GetData());
-    cmd.drawIndexed(6, 1, 0, 0, 0);
 }
 
 void Renderer::StartRender() {
@@ -83,7 +66,47 @@ void Renderer::StartRender() {
                    .setClearValues(clearValue)
                    .setRenderArea(vk::Rect2D({}, swapchain->GetExtent()));
     cmd.beginRenderPass(&renderPassBegin, vk::SubpassContents::eInline);
-    cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, ctx.renderProcess->graphicsPipeline);
+}
+
+void Renderer::DrawTexture(const Rect& rect, Texture& texture) {
+    auto& ctx = Context::Instance();
+    auto& device = ctx.device;
+    auto& cmd = cmdBufs_[curFrame_];
+    vk::DeviceSize offset = 0;
+
+    bufferRectData();
+
+    cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, ctx.renderProcess->graphicsPipelineWithTriangleTopology);
+    cmd.bindVertexBuffers(0, rectVerticesBuffer_->buffer, offset);
+    cmd.bindIndexBuffer(rectIndicesBuffer_->buffer, 0, vk::IndexType::eUint32);
+
+    auto& layout = Context::Instance().renderProcess->layout;
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+                           layout,
+                           0, {descriptorSets_[curFrame_].set, texture.set.set}, {});
+    auto model = Mat4::CreateTranslate(rect.position).Mul(Mat4::CreateScale(rect.size));
+    cmd.pushConstants(layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Mat4), model.GetData());
+    cmd.drawIndexed(6, 1, 0, 0, 0);
+}
+
+void Renderer::DrawLine(const Vec& p1, const Vec& p2) {
+    auto& ctx = Context::Instance();
+    auto& device = ctx.device;
+    auto& cmd = cmdBufs_[curFrame_];
+    vk::DeviceSize offset = 0;
+
+    bufferLineData(p1, p2);
+
+    cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, ctx.renderProcess->graphicsPipelineWithLineTopology);
+    cmd.bindVertexBuffers(0, lineVerticesBuffer_->buffer, offset);
+
+    auto& layout = Context::Instance().renderProcess->layout;
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+                           layout,
+                           0, {descriptorSets_[curFrame_].set, whiteTexture->set.set}, {});
+    auto model = Mat4::CreateIdentity();
+    cmd.pushConstants(layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Mat4), model.GetData());
+    cmd.draw(2, 1, 0, 0);
 }
 
 void Renderer::EndRender() {
@@ -149,13 +172,17 @@ void Renderer::createCmdBuffers() {
 void Renderer::createBuffers() {
     auto& device = Context::Instance().device;
 
-    verticesBuffer_.reset(new Buffer(vk::BufferUsageFlagBits::eVertexBuffer,
+    rectVerticesBuffer_.reset(new Buffer(vk::BufferUsageFlagBits::eVertexBuffer,
                                      sizeof(Vertex) * 4,
                                      vk::MemoryPropertyFlagBits::eHostVisible|vk::MemoryPropertyFlagBits::eHostCoherent));
 
-    indicesBuffer_.reset(new Buffer(vk::BufferUsageFlagBits::eIndexBuffer,
+    rectIndicesBuffer_.reset(new Buffer(vk::BufferUsageFlagBits::eIndexBuffer,
                                      sizeof(uint32_t) * 6,
                                      vk::MemoryPropertyFlagBits::eHostVisible|vk::MemoryPropertyFlagBits::eHostCoherent));
+
+    lineVerticesBuffer_.reset(new Buffer(vk::BufferUsageFlagBits::eVertexBuffer,
+                                         sizeof(Vertex) * 2,
+                                         vk::MemoryPropertyFlagBits::eHostVisible|vk::MemoryPropertyFlagBits::eHostCoherent));
 }
 
 void Renderer::createUniformBuffers(int flightCount) {
@@ -214,12 +241,12 @@ std::uint32_t Renderer::queryBufferMemTypeIndex(std::uint32_t type, vk::MemoryPr
     return 0;
 }
 
-void Renderer::bufferData() {
-    bufferVertexData();
-    bufferIndicesData();
+void Renderer::bufferRectData() {
+    bufferRectVertexData();
+    bufferRectIndicesData();
 }
 
-void Renderer::bufferVertexData() {
+void Renderer::bufferRectVertexData() {
     Vertex vertices[] = {
         {Vec{-0.5, -0.5},Vec{0, 0}},
         {Vec{0.5, -0.5} ,Vec{1, 0}},
@@ -227,16 +254,25 @@ void Renderer::bufferVertexData() {
         {Vec{-0.5, 0.5} ,Vec{0, 1}},
     };
     auto& device = Context::Instance().device;
-    memcpy(verticesBuffer_->map, vertices, sizeof(vertices));
+    memcpy(rectVerticesBuffer_->map, vertices, sizeof(vertices));
 }
 
-void Renderer::bufferIndicesData() {
+void Renderer::bufferRectIndicesData() {
     std::uint32_t indices[] = {
         0, 1, 3,
         1, 2, 3,
     };
     auto& device = Context::Instance().device;
-    memcpy(indicesBuffer_->map, indices, sizeof(indices));
+    memcpy(rectIndicesBuffer_->map, indices, sizeof(indices));
+}
+
+void Renderer::bufferLineData(const Vec& p1, const Vec& p2) {
+    Vertex vertices[] = {
+        {p1,Vec{0, 0}},
+        {p2,Vec{0, 0}},
+    };
+    auto& device = Context::Instance().device;
+    memcpy(lineVerticesBuffer_->map, vertices, sizeof(vertices));
 }
 
 void Renderer::bufferMVPData() {
@@ -305,6 +341,11 @@ void Renderer::updateDescriptorSets() {
 
         Context::Instance().device.updateDescriptorSets(writeInfos, {});
     }
+}
+
+void Renderer::createWhiteTexture() {
+    unsigned char data[] = {0xFF, 0xFF, 0xFF, 0xFF};
+    whiteTexture = TextureManager::Instance().Create((void*)data, 1, 1);
 }
 
 }

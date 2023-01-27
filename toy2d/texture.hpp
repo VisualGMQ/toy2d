@@ -22,6 +22,9 @@ public:
 
 private:
     Texture(std::string_view filename);
+
+    Texture(void* data, uint32_t w, uint32_t h);
+
     void createImage(uint32_t w, uint32_t h);
     void createImageView();
     void allocMemory();
@@ -30,6 +33,8 @@ private:
     void transitionImageLayoutFromDst2Optimal();
     void transformData2Image(Buffer&, uint32_t w, uint32_t h);
     void updateDescriptorSet();
+
+    void init(void* data, uint32_t w, uint32_t h);
 };
 
 class TextureManager final {
@@ -42,6 +47,9 @@ public:
     }
 
     Texture* Load(const std::string& filename);
+
+    // data must be a RGBA8888 format data
+    Texture* Create(void* data, uint32_t w, uint32_t h);
     void Destroy(Texture*);
     void Clear();
 

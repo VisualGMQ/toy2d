@@ -13,11 +13,22 @@ Texture::Texture(std::string_view filename) {
     if (!pixels) {
         throw std::runtime_error("image load failed");
     }
+    
+    init(pixels, w, h);
 
+    stbi_image_free(pixels);
+}
+
+Texture::Texture(void* data, unsigned int w, unsigned int h) {
+    init(data, w, h);
+}
+
+void Texture::init(void* data, uint32_t w, uint32_t h) {
+    const uint32_t size = w * h * 4;
     std::unique_ptr<Buffer> buffer(new Buffer(vk::BufferUsageFlagBits::eTransferSrc,
                                    size,
                                    vk::MemoryPropertyFlagBits::eHostCoherent|vk::MemoryPropertyFlagBits::eHostVisible));
-    memcpy(buffer->map, pixels, size);
+    memcpy(buffer->map, data, size);
 
     createImage(w, h);
     allocMemory();
@@ -28,8 +39,6 @@ Texture::Texture(std::string_view filename) {
     transitionImageLayoutFromDst2Optimal();
 
     createImageView();
-
-    stbi_image_free(pixels);
 
     set = DescriptorSetManager::Instance().AllocImageSet();
 
@@ -173,6 +182,11 @@ std::unique_ptr<TextureManager> TextureManager::instance_ = nullptr;
 
 Texture* TextureManager::Load(const std::string& filename) {
     datas_.push_back(std::unique_ptr<Texture>(new Texture(filename)));
+    return datas_.back().get();
+}
+
+Texture* TextureManager::Create(void* data, uint32_t w, uint32_t h) {
+    datas_.push_back(std::unique_ptr<Texture>(new Texture(data, w, h)));
     return datas_.back().get();
 }
 
