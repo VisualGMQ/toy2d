@@ -15,7 +15,7 @@ Renderer::Renderer(int maxFlightCount): maxFlightCount_(maxFlightCount), curFram
     initMats();
     createWhiteTexture();
 
-    SetDrawColor(Color{0, 0, 0});
+    SetDrawColor(Color{1, 1, 1});
 }
 
 Renderer::~Renderer() {
@@ -24,7 +24,6 @@ Renderer::~Renderer() {
     rectVerticesBuffer_.reset();
     rectIndicesBuffer_.reset();
     uniformBuffers_.clear();
-    colorBuffers_.clear();
     for (auto& sem : imageAvaliableSems_) {
         device.destroySemaphore(sem);
     }
@@ -86,6 +85,7 @@ void Renderer::DrawTexture(const Rect& rect, Texture& texture) {
                            0, {descriptorSets_[curFrame_].set, texture.set.set}, {});
     auto model = Mat4::CreateTranslate(rect.position).Mul(Mat4::CreateScale(rect.size));
     cmd.pushConstants(layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Mat4), model.GetData());
+    cmd.pushConstants(layout, vk::ShaderStageFlagBits::eFragment, sizeof(Mat4), sizeof(Color), &drawColor_);
     cmd.drawIndexed(6, 1, 0, 0, 0);
 }
 
@@ -106,6 +106,7 @@ void Renderer::DrawLine(const Vec& p1, const Vec& p2) {
                            0, {descriptorSets_[curFrame_].set, whiteTexture->set.set}, {});
     auto model = Mat4::CreateIdentity();
     cmd.pushConstants(layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Mat4), model.GetData());
+    cmd.pushConstants(layout, vk::ShaderStageFlagBits::eFragment, sizeof(Mat4), sizeof(Color), &drawColor_);
     cmd.draw(2, 1, 0, 0);
 }
 
@@ -200,21 +201,6 @@ void Renderer::createUniformBuffers(int flightCount) {
                      size,
                      vk::MemoryPropertyFlagBits::eDeviceLocal));
     }
-
-    colorBuffers_.resize(flightCount);
-    size = sizeof(Color);
-    for (auto& buffer : colorBuffers_) {
-        buffer.reset(new Buffer(vk::BufferUsageFlagBits::eTransferSrc,
-                     size,
-                     vk::MemoryPropertyFlagBits::eHostCoherent|vk::MemoryPropertyFlagBits::eHostVisible));
-    }
-
-    deviceColorBuffers_.resize(flightCount);
-    for (auto& buffer : deviceColorBuffers_) {
-        buffer.reset(new Buffer(vk::BufferUsageFlagBits::eTransferDst|vk::BufferUsageFlagBits::eUniformBuffer,
-                     size,
-                     vk::MemoryPropertyFlagBits::eDeviceLocal));
-    }
 }
 
 void Renderer::transformBuffer2Device(Buffer& src, Buffer& dst, size_t srcOffset, size_t dstOffset, size_t size) {
@@ -290,14 +276,7 @@ void Renderer::bufferMVPData() {
 }
 
 void Renderer::SetDrawColor(const Color& color) {
-    for (int i = 0; i < colorBuffers_.size(); i++) {
-        auto& buffer = colorBuffers_[i];
-        auto& device = Context::Instance().device;
-        memcpy(buffer->map, (void*)&color, sizeof(float) * 3);
-
-        transformBuffer2Device(*buffer, *deviceColorBuffers_[i], 0, 0, buffer->size);
-    }
-
+    drawColor_ = color;
 }
 
 void Renderer::initMats() {
@@ -318,25 +297,12 @@ void Renderer::updateDescriptorSets() {
                    .setOffset(0)
 				   .setRange(sizeof(Mat4) * 2);
 
-        std::vector<vk::WriteDescriptorSet> writeInfos(2);
+        std::vector<vk::WriteDescriptorSet> writeInfos(1);
         writeInfos[0].setBufferInfo(bufferInfo1)
                      .setDstBinding(0)
                      .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                      .setDescriptorCount(1)
                      .setDstArrayElement(0)
-                     .setDstSet(descriptorSets_[i].set);
-
-        // bind Color buffer
-        vk::DescriptorBufferInfo bufferInfo2;
-        bufferInfo2.setBuffer(deviceColorBuffers_[i]->buffer)
-            .setOffset(0)
-            .setRange(sizeof(Color));
-
-        writeInfos[1].setBufferInfo(bufferInfo2)
-                     .setDstBinding(1)
-                     .setDescriptorCount(1)
-                     .setDstArrayElement(0)
-                     .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                      .setDstSet(descriptorSets_[i].set);
 
         Context::Instance().device.updateDescriptorSets(writeInfos, {});

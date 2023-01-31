@@ -20,15 +20,11 @@ Shader::Shader(const std::vector<char>& vertexSource, const std::vector<char>& f
 
 void Shader::initDescriptorSetLayouts() {
     vk::DescriptorSetLayoutCreateInfo createInfo;
-    std::vector<vk::DescriptorSetLayoutBinding> bindings(2);
+    std::vector<vk::DescriptorSetLayoutBinding> bindings(1);
     bindings[0].setBinding(0)
                .setDescriptorCount(1)
                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                .setStageFlags(vk::ShaderStageFlagBits::eVertex);
-    bindings[1].setBinding(1)
-               .setDescriptorCount(1)
-               .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-               .setStageFlags(vk::ShaderStageFlagBits::eFragment);
     createInfo.setBindings(bindings);
 
     layouts_.push_back(Context::Instance().device.createDescriptorSetLayout(createInfo));
@@ -53,12 +49,15 @@ Shader::~Shader() {
     device.destroyShaderModule(fragModule_);
 }
 
-vk::PushConstantRange Shader::GetPushConstantRange() const {
-    vk::PushConstantRange range;
-    range.setOffset(0)
-         .setSize(sizeof(Mat4))
-         .setStageFlags(vk::ShaderStageFlagBits::eVertex);
-    return range;
+std::vector<vk::PushConstantRange> Shader::GetPushConstantRange() const {
+    std::vector<vk::PushConstantRange> ranges(2);
+    ranges[0].setOffset(0)
+             .setSize(sizeof(Mat4))
+             .setStageFlags(vk::ShaderStageFlagBits::eVertex);
+    ranges[1].setOffset(sizeof(Mat4))
+             .setSize(sizeof(Color))
+             .setStageFlags(vk::ShaderStageFlagBits::eFragment);
+    return ranges;
 }
 
 }

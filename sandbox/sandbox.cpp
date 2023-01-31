@@ -39,7 +39,6 @@ int main(int argc, char** argv) {
     toy2d::Texture* texture1 = toy2d::LoadTexture("resources/role.png");
     toy2d::Texture* texture2 = toy2d::LoadTexture("resources/texture.jpg");
 
-    renderer->SetDrawColor(toy2d::Color{1, 1, 1});
     while (!shouldClose) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
@@ -67,8 +66,11 @@ int main(int argc, char** argv) {
         }
 
 		renderer->StartRender();
+        renderer->SetDrawColor(toy2d::Color{1, 0, 0});
 		renderer->DrawTexture(toy2d::Rect{toy2d::Vec{x, y}, toy2d::Size{200, 300}}, *texture1);
+        renderer->SetDrawColor(toy2d::Color{0, 1, 0});
 		renderer->DrawTexture(toy2d::Rect{toy2d::Vec{500, 100}, toy2d::Size{200, 300}}, *texture2);
+        renderer->SetDrawColor(toy2d::Color{0, 0, 1});
 		renderer->DrawLine(toy2d::Vec{0, 0}, toy2d::Vec{WindowWidth, WindowHeight});
 		renderer->EndRender();
     }

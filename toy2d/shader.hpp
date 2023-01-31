@@ -14,7 +14,7 @@ public:
     vk::ShaderModule GetFragModule() const { return fragModule_; }
 
     const std::vector<vk::DescriptorSetLayout>& GetDescriptorSetLayouts() const { return layouts_; }
-    vk::PushConstantRange GetPushConstantRange() const;
+    std::vector<vk::PushConstantRange> GetPushConstantRange() const;
 
 private:
     vk::ShaderModule vertexModule_;

@@ -38,12 +38,11 @@ private:
     Mat4 projectMat_;
     Mat4 viewMat_;
     std::vector<std::unique_ptr<Buffer>> uniformBuffers_;
-    std::vector<std::unique_ptr<Buffer>> colorBuffers_;
     std::vector<std::unique_ptr<Buffer>> deviceUniformBuffers_;
-    std::vector<std::unique_ptr<Buffer>> deviceColorBuffers_;
     std::vector<DescriptorSetManager::SetInfo> descriptorSets_;
     vk::Sampler sampler;
     Texture* whiteTexture;
+    Color drawColor_ = {1, 1, 1};
 
     void createFences();
     void createSemaphores();
