@@ -1,5 +1,11 @@
 add_executable(sandbox)
-aux_source_directory(./ SANDBOX_SRC)
-target_sources(sandbox PRIVATE ${SANDBOX_SRC})
+target_sources(sandbox PRIVATE sandbox.cpp)
 target_link_libraries(sandbox PUBLIC toy2d SDL2)
 CopyDLL(sandbox)
+
+add_executable(compute)
+aux_source_directory(./compute COMPUTER_SRC)
+target_sources(compute PRIVATE ${COMPUTER_SRC})
+target_link_libraries(compute PUBLIC Vulkan::Vulkan)
+target_compile_features(compute PUBLIC cxx_std_17)
+target_include_directories(compute PRIVATE compute)

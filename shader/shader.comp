@@ -1,0 +1,12 @@
+#version 450 core
+
+layout (local_size_x = 4) in;
+
+layout (set = 0, binding = 0) buffer Buffer {
+    uint value[4];
+} buf;
+
+void main() {
+    uint lID = gl_GlobalInvocationID.x;
+    buf.value[lID] = lID;
+}
