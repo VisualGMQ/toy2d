@@ -3,6 +3,12 @@
 #include "SDL_vulkan.h"
 #include <SDL_video.h>
 
+// If you have selected SDL2 component when installed Vulkan SDK
+// The following codes will work
+// #include <SDL2/SDL.h>
+// #include <SDL2/SDL_vulkan.h>
+// #include <SDL2/SDL_video.h>
+
 constexpr uint32_t WindowWidth = 1024;
 constexpr uint32_t WindowHeight = 720;
 

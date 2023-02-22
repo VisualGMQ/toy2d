@@ -7,7 +7,7 @@ project(Toy2D
 
 include(cmake/FindVulkan.cmake)
 include(cmake/FindSDL2.cmake)
-include(cmake/copydll.cmake)
+include(cmake/CopyFiles.cmake)
 
 find_program(GLSLC_PROGRAM glslc REQUIRED)
 
@@ -19,7 +19,7 @@ message(STATUS "compile shader OK")
 aux_source_directory(src SRC)
 
 add_library(toy2d STATIC ${SRC})
-target_include_directories(toy2d PUBLIC .)
+target_include_directories(toy2d PUBLIC ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(toy2d PUBLIC Vulkan::Vulkan)
 target_compile_features(toy2d PUBLIC cxx_std_17)
 
