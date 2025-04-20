@@ -29,6 +29,10 @@ int main(int argc, char** argv) {
     std::vector<const char*> extensions(count);
     SDL_Vulkan_GetInstanceExtensions(window, &count, extensions.data());
 
+#ifdef __APPLE__
+    extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+#endif
+
     toy2d::Init(extensions,
         [&](VkInstance instance){
             VkSurfaceKHR surface;
