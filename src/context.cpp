@@ -61,6 +61,10 @@ vk::Instance Context::createInstance(std::vector<const char*>& extensions) {
     std::vector<const char*> layers = {"VK_LAYER_KHRONOS_validation"};
     info.setPEnabledLayerNames(layers);
 
+#ifdef __APPLE__
+    info.setFlags(vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR);
+#endif
+
     return vk::createInstance(info);
 }
 
